@@ -9,7 +9,7 @@
 
 ## 기술 스택 및 개발 환경
 * **개발 플랫폼**: iOS, Android
-* **개발 언어**: Swift (iOS 대응), React Native (Android 대응)
+* **개발 수단**: Flutter (iOS, Android 대응)
 * **데이터베이스**: SQLite
 * **개발 도구**: Visual Studio Code, XCode
 * **협업 및 형상 관리**: Git & GitHub
