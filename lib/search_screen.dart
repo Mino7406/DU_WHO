@@ -1,5 +1,84 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'call_screen.dart';
+
+// 전체 교직원 임시 데이터 (Mock Data)
+final List<Map<String, dynamic>> allStaff = [
+  {
+    "name": "김지연",
+    "department": "컴퓨터정보공학부",
+    "phone": "053-850-6571",
+    "location": "IT·공과대학\n(D17) 000호",
+    "isStaff": true,
+    "isFavorite": true,
+  },
+  {
+    "name": "박순진",
+    "department": "총장실",
+    "phone": "053-850-1234",
+    "location": "본관\n1층",
+    "isStaff": true,
+    "isFavorite": true,
+  },
+  {
+    "name": "홍길동",
+    "department": "행정실",
+    "phone": "053-850-9999",
+    "location": "본관\n2층",
+    "isStaff": true,
+    "isFavorite": false,
+  },
+  {
+    "name": "신유라",
+    "department": "도서관",
+    "phone": "053-850-8001",
+    "location": "창파도서관\n1층",
+    "isStaff": true,
+    "isFavorite": false,
+  },
+  {
+    "name": "권형준",
+    "department": "학생지원팀",
+    "phone": "053-850-8101",
+    "location": "웅지관\n2층",
+    "isStaff": true,
+    "isFavorite": true,
+  },
+  {
+    "name": "문가영",
+    "department": "입학처",
+    "phone": "053-850-8201",
+    "location": "본관\n(A01) 301호",
+    "isStaff": true,
+    "isFavorite": false,
+  },
+  {
+    "name": "류지석",
+    "department": "산학협력단",
+    "phone": "053-850-8301",
+    "location": "산학협력관\n(R02) 201호",
+    "isStaff": true,
+    "isFavorite": false,
+  },
+  {
+    "name": "안소민",
+    "department": "보건진료소",
+    "phone": "053-850-8401",
+    "location": "보건진료소\n(S04) 201호",
+    "isStaff": true,
+    "isFavorite": false,
+  },
+];
+
+// 전화 다이얼러 호출 - 화면 간 공유
+Future<void> makePhoneCall(String phoneNumber) async {
+  final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
+  if (await canLaunchUrl(launchUri)) {
+    await launchUrl(launchUri);
+  } else {
+    debugPrint('전화 연결을 지원하지 않는 기기이거나 오류가 발생했습니다: $phoneNumber');
+  }
+}
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({Key? key}) : super(key: key);
@@ -9,48 +88,25 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  // 전체 교직원 임시 데이터 (Mock Data)
-  final List<Map<String, dynamic>> _allStaff = [
-    {
-      "name": "김지연",
-      "department": "컴퓨터정보공학부",
-      "phone": "053-850-6571",
-      "location": "IT·공과대학\n(D17) 000호",
-      "isStaff": true,
-    },
-    {
-      "name": "박순진",
-      "department": "총장실",
-      "phone": "053-850-1234",
-      "location": "본관\n1층",
-      "isStaff": true,
-    },
-    {
-      "name": "홍길동",
-      "department": "행정실",
-      "phone": "053-850-9999",
-      "location": "본관\n2층",
-      "isStaff": true,
-    },
-  ];
-
   List<Map<String, dynamic>> _foundStaff = [];
 
   @override
   void initState() {
     super.initState();
-    _foundStaff = _allStaff;
+    _foundStaff = allStaff;
   }
 
   void _runFilter(String enteredKeyword) {
     List<Map<String, dynamic>> results = [];
     if (enteredKeyword.isEmpty) {
-      results = _allStaff;
+      results = allStaff;
     } else {
-      results = _allStaff
-          .where((staff) =>
-              staff["name"].toString().contains(enteredKeyword) ||
-              staff["department"].toString().contains(enteredKeyword))
+      results = allStaff
+          .where(
+            (staff) =>
+                staff["name"].toString().contains(enteredKeyword) ||
+                staff["department"].toString().contains(enteredKeyword),
+          )
           .toList();
     }
 
@@ -59,13 +115,14 @@ class _SearchScreenState extends State<SearchScreen> {
     });
   }
 
-  Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
-    if (await canLaunchUrl(launchUri)) {
-      await launchUrl(launchUri);
-    } else {
-      debugPrint('전화 연결을 지원하지 않는 기기이거나 오류가 발생했습니다: $phoneNumber');
-    }
+  // 즐겨찾기 ON/OFF 토글
+  // staff Map의 isFavorite 값을 직접 뒤집고 setState로 화면 갱신
+  // (allStaff와 같은 Map 객체를 참조하므로 홈 화면 즐겨찾기 목록에도 즉시 반영됨)
+  void _toggleFavorite(Map<String, dynamic> staff) {
+    setState(() {
+      // null 또는 false면 true로, true면 false로 (== true 비교로 nullable 안전 처리)
+      staff["isFavorite"] = !(staff["isFavorite"] == true);
+    });
   }
 
   // 항목을 터치했을 때 상세 정보를 보여주는 다이얼로그(팝업) 함수
@@ -82,7 +139,7 @@ class _SearchScreenState extends State<SearchScreen> {
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           content: Column(
-            mainAxisSize: MainAxisSize.min, // 내용물 크기만큼만 높이 차지
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildDetailRow(Icons.person, '이름', staff["name"]),
@@ -91,18 +148,28 @@ class _SearchScreenState extends State<SearchScreen> {
               const SizedBox(height: 12),
               _buildDetailRow(Icons.phone, '전화', staff["phone"]),
               const SizedBox(height: 12),
-              _buildDetailRow(Icons.location_on, '위치', staff["location"].replaceAll('\n', ' ')),
+              _buildDetailRow(
+                Icons.location_on,
+                '위치',
+                staff["location"].replaceAll('\n', ' '),
+              ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context), // 창 닫기
+              onPressed: () => Navigator.pop(context),
               child: const Text('닫기', style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton.icon(
               onPressed: () {
-                Navigator.pop(context); // 팝업 닫고
-                _makePhoneCall(staff["phone"]); // 전화 다이얼러 호출
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        CallScreen(isStaff: staff["isStaff"] == true),
+                  ),
+                );
               },
               icon: const Icon(Icons.call, size: 18),
               label: const Text('전화걸기'),
@@ -117,7 +184,6 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  // 상세 정보 팝업 내의 텍스트 배치를 돕는 헬퍼 위젯
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,15 +194,13 @@ class _SearchScreenState extends State<SearchScreen> {
           width: 50,
           child: Text(
             label,
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
           ),
         ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(fontSize: 15),
-          ),
-        ),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 15))),
       ],
     );
   }
@@ -193,9 +257,34 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               child: const Row(
                 children: [
-                  Expanded(flex: 2, child: Center(child: Text('이름(부서)', style: TextStyle(fontWeight: FontWeight.bold)))),
-                  Expanded(flex: 2, child: Center(child: Text('교내전화', style: TextStyle(fontWeight: FontWeight.bold)))),
-                  Expanded(flex: 2, child: Center(child: Text('사무실위치', style: TextStyle(fontWeight: FontWeight.bold)))),
+                  Expanded(
+                    flex: 2,
+                    child: Center(
+                      child: Text(
+                        '이름(부서)',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Center(
+                      child: Text(
+                        '교내전화',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Center(
+                      child: Text(
+                        '사무실위치',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 48), // 즐겨찾기 별 컬럼 자리
                 ],
               ),
             ),
@@ -210,7 +299,10 @@ class _SearchScreenState extends State<SearchScreen> {
                           child: Container(
                             decoration: const BoxDecoration(
                               border: Border(
-                                bottom: BorderSide(color: Colors.grey, width: 0.5),
+                                bottom: BorderSide(
+                                  color: Colors.grey,
+                                  width: 0.5,
+                                ),
                               ),
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -220,8 +312,19 @@ class _SearchScreenState extends State<SearchScreen> {
                                   flex: 2,
                                   child: Column(
                                     children: [
-                                      Text(staff["name"], style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      Text(staff["department"], style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                      Text(
+                                        staff["name"],
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        staff["department"],
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -229,7 +332,14 @@ class _SearchScreenState extends State<SearchScreen> {
                                   flex: 2,
                                   child: Center(
                                     child: TextButton(
-                                      onPressed: () => _makePhoneCall(staff["phone"]),
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => CallScreen(
+                                            isStaff: staff["isStaff"] == true,
+                                          ),
+                                        ),
+                                      ),
                                       child: Text(
                                         staff["phone"],
                                         style: const TextStyle(
@@ -242,7 +352,29 @@ class _SearchScreenState extends State<SearchScreen> {
                                 ),
                                 Expanded(
                                   flex: 2,
-                                  child: Center(child: Text(staff["location"], textAlign: TextAlign.center, style: const TextStyle(fontSize: 12))),
+                                  child: Center(
+                                    child: Text(
+                                      staff["location"],
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                ),
+                                // 즐겨찾기 토글 버튼 - 별 아이콘
+                                // 활성: 채워진 별(amber) / 비활성: 빈 별(grey)
+                                IconButton(
+                                  icon: Icon(
+                                    staff["isFavorite"] == true
+                                        ? Icons.star
+                                        : Icons.star_border,
+                                    color: staff["isFavorite"] == true
+                                        ? Colors.amber
+                                        : Colors.grey,
+                                  ),
+                                  tooltip: staff["isFavorite"] == true
+                                      ? '즐겨찾기 해제'
+                                      : '즐겨찾기 추가',
+                                  onPressed: () => _toggleFavorite(staff),
                                 ),
                               ],
                             ),
@@ -251,7 +383,10 @@ class _SearchScreenState extends State<SearchScreen> {
                       },
                     )
                   : const Center(
-                      child: Text('검색 결과가 없습니다.', style: TextStyle(fontSize: 16)),
+                      child: Text(
+                        '검색 결과가 없습니다.',
+                        style: TextStyle(fontSize: 16),
+                      ),
                     ),
             ),
           ],

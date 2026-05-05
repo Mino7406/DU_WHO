@@ -1,4 +1,4 @@
-import 'search_screen.dart';
+import 'home_screen.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -86,7 +86,7 @@ class LoginScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const SearchScreen(),
+                          builder: (context) => const HomeScreen(),
                         ),
                       );
                     },
