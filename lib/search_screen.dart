@@ -206,7 +206,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       itemBuilder: (context, index) {
                         final staff = _foundStaff[index];
                         return InkWell(
-                          onTap: () => _showStaffDetails(context, staff), // 가상 통화 화면 대신 팝업 호출
+                          onTap: () => _showStaffDetails(context, staff),
                           child: Container(
                             decoration: const BoxDecoration(
                               border: Border(

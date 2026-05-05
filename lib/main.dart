@@ -37,7 +37,6 @@ class LoginScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 임시 로고 컨테이너 (추후 이미지로 교체)
                 // 1. 메인 로고 이미지
                 SizedBox(
                   height: 250,
