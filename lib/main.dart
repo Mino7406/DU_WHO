@@ -38,20 +38,13 @@ class LoginScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // 임시 로고 컨테이너 (추후 이미지로 교체)
-                Container(
+                // 1. 메인 로고 이미지
+                SizedBox(
                   height: 250,
                   width: double.infinity,
-                  color: Colors.green[300],
-                  child: const Center(
-                    child: Text(
-                      '호랑이 캐릭터 위치\n(DU-WHO 로고)',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
+                  child: Image.asset(
+                    'assets/logo.png',
+                    fit: BoxFit.contain, // 이미지 비율을 유지하면서 영역 안에 맞춤
                   ),
                 ),
                 const SizedBox(height: 60),
