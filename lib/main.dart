@@ -1,7 +1,12 @@
-import 'search_screen.dart';
+import 'home_screen.dart';
+import 'db/database_helper.dart';
+import 'state/favorites.dart';
 import 'package:flutter/material.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await DatabaseHelper.instance.database;
+  await loadFavoritesFromDb();
   runApp(const DuWhoApp());
 }
 
@@ -86,7 +91,7 @@ class LoginScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const SearchScreen(),
+                          builder: (context) => const HomeScreen(),
                         ),
                       );
                     },

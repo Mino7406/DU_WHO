@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'db/database_helper.dart';
 import 'staff_model.dart';
+import 'state/favorites.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -23,7 +23,7 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
-    _loadStaffData();
+    _loadAllStaff();
   }
 
   @override
@@ -32,17 +32,9 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
-  Future<void> _loadStaffData() async {
-    final String jsonString =
-        await rootBundle.loadString('assets/staff_db.json');
-    final Map<String, dynamic> jsonData = json.decode(jsonString);
-    final List<dynamic> list = jsonData['memberSearchList'] ?? [];
-
-    final staff = list
-        .map((e) => Staff.fromJson(e as Map<String, dynamic>))
-        .where((s) => s.name.isNotEmpty)
-        .toList();
-
+  Future<void> _loadAllStaff() async {
+    final staff = await DatabaseHelper.instance.getAllStaff();
+    if (!mounted) return;
     setState(() {
       _allStaff = staff;
       _foundStaff = staff;
@@ -50,25 +42,22 @@ class _SearchScreenState extends State<SearchScreen> {
     });
   }
 
-  void _runFilter(String keyword) {
+  Future<void> _runFilter(String keyword) async {
+    final results = keyword.isEmpty
+        ? _allStaff
+        : await DatabaseHelper.instance.searchStaff(keyword, _searchMode);
+    if (!mounted) return;
     setState(() {
-      if (keyword.isEmpty) {
-        _foundStaff = _allStaff;
-      } else {
-        if (_searchMode == 1) {
-          // 이름/부서만 검색
-          _foundStaff = _allStaff
-              .where((s) =>
-                  s.name.contains(keyword) ||
-                  s.department.contains(keyword))
-              .toList();
-        } else {
-          // 전체 필드 검색
-          _foundStaff =
-              _allStaff.where((s) => s.matchesQuery(keyword)).toList();
-        }
-      }
+      _foundStaff = results;
     });
+  }
+
+  Future<void> _toggleFavorite(Staff staff) async {
+    final id = staff.id;
+    if (id == null) return;
+    await toggleFavorite(id);
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _makePhoneCall(String phoneNumber) async {
@@ -171,6 +160,25 @@ class _SearchScreenState extends State<SearchScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget _favoriteStar(Staff staff) {
+    final id = staff.id;
+    final on = id != null && favoriteStaffIds.contains(id);
+    return SizedBox(
+      width: 40,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        icon: Icon(
+          on ? Icons.star : Icons.star_border,
+          color: on ? Colors.amber : Colors.grey,
+          size: 22,
+        ),
+        tooltip: on ? '즐겨찾기 해제' : '즐겨찾기 추가',
+        onPressed: id == null ? null : () => _toggleFavorite(staff),
+      ),
     );
   }
 
@@ -300,6 +308,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                     style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 13)))),
+                        SizedBox(width: 40), // 즐겨찾기 별 컬럼 자리
                       ],
                     ),
                   ),
@@ -401,6 +410,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                           ),
                                         ),
                                       ),
+                                      _favoriteStar(staff),
                                     ],
                                   ),
                                 ),
