@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class CallScreen extends StatelessWidget {
   final bool isStaff; // 학생(false) 또는 교직원(true) 여부 설정
 
-  const CallScreen({Key? key, this.isStaff = false}) : super(key: key);
+  const CallScreen({super.key, this.isStaff = false});
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +97,7 @@ class CallScreen extends StatelessWidget {
           width: 70,
           height: 70,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2), // 반투명한 흰색 배경
+            color: Colors.white.withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: Colors.white, size: 32),
