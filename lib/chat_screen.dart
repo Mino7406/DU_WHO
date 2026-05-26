@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/gemini_service.dart';
+import 'main.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -28,9 +29,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _addBotMessage(String text) {
-    setState(() {
-      _messages.add(_ChatMessage(text: text, isUser: false));
-    });
+    setState(() => _messages.add(_ChatMessage(text: text, isUser: false)));
     _scrollToBottom();
   }
 
@@ -63,7 +62,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _addBotMessage(reply);
     } catch (e) {
       if (!mounted) return;
-      _addBotMessage('오류: $e');
+      _addBotMessage('오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -71,30 +70,41 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _resetChat() {
     GeminiService.instance.resetChat();
-    setState(() {
-      _messages.clear();
-    });
+    setState(() => _messages.clear());
     _addBotMessage('대화가 초기화되었습니다. 무엇이 궁금하신가요?');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: kSurface,
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.smart_toy, size: 20),
-            SizedBox(width: 8),
-            Text('AI 교직원 안내'),
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [kPrimary, Color(0xFF2A9D5C)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 18),
+            ),
+            const SizedBox(width: 10),
+            const Text('AI 교직원 안내'),
           ],
         ),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: kTextPrimary,
         elevation: 0,
+        scrolledUnderElevation: 1,
+        shadowColor: const Color(0x18000000),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded, color: kTextSecondary),
             tooltip: '대화 초기화',
             onPressed: _resetChat,
           ),
@@ -105,12 +115,10 @@ class _ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               itemCount: _messages.length + (_isLoading ? 1 : 0),
               itemBuilder: (context, index) {
-                if (index == _messages.length) {
-                  return const _TypingIndicator();
-                }
+                if (index == _messages.length) return const _TypingIndicator();
                 return _MessageBubble(message: _messages[index]);
               },
             ),
@@ -123,12 +131,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildInputBar() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+      padding: EdgeInsets.fromLTRB(
+        16, 10, 16, MediaQuery.of(context).viewInsets.bottom + 20),
       decoration: BoxDecoration(
         color: Colors.white,
+        border: const Border(top: BorderSide(color: kDivider)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -141,33 +151,50 @@ class _ChatScreenState extends State<ChatScreen> {
               controller: _controller,
               onSubmitted: (_) => _sendMessage(),
               textInputAction: TextInputAction.send,
+              style: const TextStyle(fontSize: 14, color: kTextPrimary),
               decoration: InputDecoration(
                 hintText: '질문을 입력하세요...',
-                hintStyle: TextStyle(color: Colors.grey[400]),
+                hintStyle: const TextStyle(color: kTextSecondary, fontSize: 14),
                 filled: true,
-                fillColor: Colors.grey[100],
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
+                fillColor: kSurface,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
+                  borderSide: const BorderSide(color: kDivider),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(color: kDivider),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(color: kPrimary, width: 1.5),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           GestureDetector(
             onTap: _sendMessage,
-            child: Container(
-              width: 44,
-              height: 44,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 46, height: 46,
               decoration: BoxDecoration(
-                color: _isLoading ? Colors.grey : Colors.green,
+                gradient: _isLoading
+                    ? null
+                    : const LinearGradient(
+                        colors: [kPrimary, Color(0xFF2A9D5C)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                color: _isLoading ? kDivider : null,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.send, color: Colors.white, size: 20),
+              child: Icon(
+                Icons.arrow_upward_rounded,
+                color: _isLoading ? kTextSecondary : Colors.white,
+                size: 22,
+              ),
             ),
           ),
         ],
@@ -189,31 +216,61 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUser = message.isUser;
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: isUser ? Colors.green : Colors.grey[100],
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isUser ? 16 : 4),
-            bottomRight: Radius.circular(isUser ? 4 : 16),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isUser) ...[
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [kPrimary, Color(0xFF2A9D5C)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 18),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.72,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              decoration: BoxDecoration(
+                gradient: isUser
+                    ? const LinearGradient(
+                        colors: [kPrimary, Color(0xFF2A9D5C)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: isUser ? null : Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(isUser ? 16 : 4),
+                  bottomRight: Radius.circular(isUser ? 4 : 16),
+                ),
+                border: isUser ? null : Border.all(color: kDivider),
+              ),
+              child: Text(
+                message.text,
+                style: TextStyle(
+                  color: isUser ? Colors.white : kTextPrimary,
+                  fontSize: 14,
+                  height: 1.55,
+                ),
+              ),
+            ),
           ),
-        ),
-        child: Text(
-          message.text,
-          style: TextStyle(
-            color: isUser ? Colors.white : Colors.black87,
-            fontSize: 14,
-            height: 1.5,
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -224,48 +281,96 @@ class _TypingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-            bottomRight: Radius.circular(16),
-            bottomLeft: Radius.circular(4),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [kPrimary, Color(0xFF2A9D5C)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 18),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _dot(0),
-            const SizedBox(width: 4),
-            _dot(150),
-            const SizedBox(width: 4),
-            _dot(300),
-          ],
-        ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+                bottomLeft: Radius.circular(4),
+              ),
+              border: Border.all(color: kDivider),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _AnimatedDot(delay: 0),
+                const SizedBox(width: 5),
+                _AnimatedDot(delay: 200),
+                const SizedBox(width: 5),
+                _AnimatedDot(delay: 400),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  Widget _dot(int delayMs) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.4, end: 1.0),
+class _AnimatedDot extends StatefulWidget {
+  final int delay;
+  const _AnimatedDot({required this.delay});
+
+  @override
+  State<_AnimatedDot> createState() => _AnimatedDotState();
+}
+
+class _AnimatedDotState extends State<_AnimatedDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
       duration: const Duration(milliseconds: 600),
-      curve: Curves.easeInOut,
-      builder: (_, value, _) => Opacity(
-        opacity: value,
-        child: Container(
-          width: 8,
-          height: 8,
-          decoration: const BoxDecoration(
-            color: Colors.grey,
-            shape: BoxShape.circle,
-          ),
+    );
+    _anim = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _ctrl.repeat(reverse: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _anim,
+      child: Container(
+        width: 7, height: 7,
+        decoration: const BoxDecoration(
+          color: kTextSecondary,
+          shape: BoxShape.circle,
         ),
       ),
     );

@@ -25,8 +25,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadFavorites();
   }
 
-  // 전체 staff 를 DB 에서 읽어 favoriteStaffIds 와 교집합으로 즐겨찾기 목록 구성.
-  // 검색 화면에서 별 토글 후 돌아왔을 때도 다시 호출돼 최신 상태 반영.
   Future<void> _loadFavorites() async {
     final all = await DatabaseHelper.instance.getAllStaff();
     if (!mounted) return;
@@ -42,102 +40,253 @@ class _HomeScreenState extends State<HomeScreen> {
     final cleaned = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
     if (cleaned.isEmpty || cleaned == '0000') return;
     final uri = Uri(scheme: 'tel', path: cleaned);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  Future<void> _sendEmail(String email) async {
+    if (email.isEmpty) return;
+    final uri = Uri(scheme: 'mailto', path: email);
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  Future<void> _toggleFavorite(Staff staff) async {
+    final id = staff.id;
+    if (id == null) return;
+    await toggleFavorite(id);
+    if (mounted) _loadFavorites();
+  }
+
+  void _showStaffDetails(BuildContext context, Staff staff) {
+    final phone = staff.tel.isNotEmpty && staff.tel != '0000'
+        ? staff.tel
+        : staff.cellTel;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final isFav = staff.id != null && favoriteStaffIds.contains(staff.id);
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: EdgeInsets.fromLTRB(
+              24, 20, 24, MediaQuery.of(ctx).viewInsets.bottom + 40),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: kDivider,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Container(
+                      width: 56, height: 56,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [kPrimary, Color(0xFF2A9D5C)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(Icons.person_rounded, color: Colors.white, size: 30),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            staff.name,
+                            style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.w800, color: kTextPrimary),
+                          ),
+                          if (staff.title.isNotEmpty)
+                            Text(
+                              staff.title,
+                              style: const TextStyle(
+                                fontSize: 14, color: kPrimary, fontWeight: FontWeight.w500),
+                            ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+                        color: isFav ? Colors.amber : kTextSecondary,
+                        size: 28,
+                      ),
+                      tooltip: isFav ? '즐겨찾기 해제' : '즐겨찾기 추가',
+                      onPressed: () async {
+                        await _toggleFavorite(staff);
+                        if (!ctx.mounted) return;
+                        setSheetState(() {});
+                        if (!favoriteStaffIds.contains(staff.id)) {
+                          Navigator.pop(ctx);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Divider(height: 1, color: kDivider),
+                const SizedBox(height: 16),
+                _detailRow(Icons.business_rounded, '부서', staff.department),
+                if (staff.location.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _detailRow(Icons.location_on_rounded, '위치', staff.location),
+                ],
+                if (staff.tel.isNotEmpty && staff.tel != '0000') ...[
+                  const SizedBox(height: 12),
+                  _detailRow(Icons.phone_rounded, '교내전화', staff.tel),
+                ],
+                if (staff.cellTel.isNotEmpty && staff.cellTel != '000-0000-0000') ...[
+                  const SizedBox(height: 12),
+                  _detailRow(Icons.smartphone_rounded, '휴대폰', staff.cellTel),
+                ],
+                if (staff.email.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _detailRow(Icons.email_rounded, '이메일', staff.email),
+                ],
+                if (staff.chargeBusiness.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _detailRow(Icons.work_rounded, '담당업무', staff.chargeBusiness),
+                ],
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    if (staff.email.isNotEmpty)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _sendEmail(staff.email);
+                          },
+                          icon: const Icon(Icons.email_rounded, size: 18),
+                          label: const Text('메일보내기'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: kPrimary,
+                            side: const BorderSide(color: kPrimary),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                    if (staff.email.isNotEmpty && phone.isNotEmpty)
+                      const SizedBox(width: 12),
+                    if (phone.isNotEmpty)
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _makePhoneCall(phone);
+                          },
+                          icon: const Icon(Icons.call_rounded, size: 18),
+                          label: const Text('전화걸기'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: kPrimary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 32, height: 32,
+          decoration: BoxDecoration(
+            color: kPrimaryLight,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 16, color: kPrimary),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 60,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: kTextSecondary, fontWeight: FontWeight.w500),
+          ),
+        ),
+        Expanded(
+          child: Text(value, style: const TextStyle(fontSize: 13, color: kTextPrimary)),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: kSurface,
       appBar: AppBar(
-        title: const Text('DU-WHO'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
+        title: const Text(
+          'DU-WHO',
+          style: TextStyle(
+            color: kPrimary,
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+          ),
+        ),
+        backgroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 1,
+        shadowColor: const Color(0x18000000),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout_rounded, color: kTextSecondary),
             tooltip: '로그아웃',
             onPressed: () {
-              // 뒤로가기로 홈에 다시 못 돌아오도록 스택 교체
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
               );
             },
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildSearchShortcut(),
-            const SizedBox(height: 12),
-            _buildChatShortcut(),
-            const SizedBox(height: 24),
-            _buildFavoritesSection(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSearchShortcut() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12.0),
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const SearchScreen()),
-          );
-          if (mounted) _loadFavorites();
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 20.0,
-            vertical: 24.0,
-          ),
-          child: Row(
+      body: RefreshIndicator(
+        color: kPrimary,
+        onRefresh: _loadFavorites,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: Colors.green[100],
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                child: const Icon(Icons.search, color: Colors.green, size: 32),
-              ),
-              const SizedBox(width: 16),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '교직원 검색',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      '이름·부서·담당업무로 연락처 찾기',
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: Colors.grey),
+              _buildSectionTitle('서비스'),
+              const SizedBox(height: 12),
+              _buildServiceCards(),
+              const SizedBox(height: 24),
+              _buildSectionTitle('즐겨찾기'),
+              const SizedBox(height: 12),
+              _buildFavoritesSection(),
+              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -145,121 +294,122 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildChatShortcut() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12.0),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ChatScreen()),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 20.0,
-            vertical: 24.0,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: Colors.green[100],
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                child: const Icon(Icons.smart_toy, color: Colors.green, size: 32),
-              ),
-              const SizedBox(width: 16),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AI 교직원 안내',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      '부서 업무·담당자를 AI에게 물어보세요',
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: Colors.grey),
-            ],
-          ),
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: kTextPrimary,
         ),
+      ),
+    );
+  }
+
+  Widget _buildServiceCards() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          _ServiceCard(
+            icon: Icons.manage_search_rounded,
+            iconBgStart: const Color(0xFF1A6B3C),
+            iconBgEnd: const Color(0xFF2A9D5C),
+            title: '교직원 검색',
+            subtitle: '이름·부서·담당업무로 연락처 찾기',
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SearchScreen()),
+              );
+              if (mounted) _loadFavorites();
+            },
+          ),
+          const SizedBox(height: 10),
+          _ServiceCard(
+            icon: Icons.smart_toy_rounded,
+            iconBgStart: const Color(0xFF1565A8),
+            iconBgEnd: const Color(0xFF2196F3),
+            title: 'AI 교직원 안내',
+            subtitle: '부서 업무·담당자를 AI에게 물어보세요',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ChatScreen()),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildFavoritesSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4.0),
-          child: Text(
-            '즐겨찾기',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32.0),
-            child: Center(child: CircularProgressIndicator(color: Colors.green)),
-          )
-        else if (_favorites.isEmpty)
-          _buildEmptyFavoritesCard()
-        else
-          _buildFavoritesList(),
-      ],
-    );
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: CircularProgressIndicator(color: kPrimary)),
+      );
+    }
+    if (_favorites.isEmpty) return _buildEmptyFavorites();
+    return _buildFavoritesList();
   }
 
-  Widget _buildEmptyFavoritesCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 32.0),
-        child: Column(
-          children: [
-            Icon(Icons.star_border, size: 48, color: Colors.grey[400]),
-            const SizedBox(height: 12),
-            Text(
-              '검색 화면에서 ★ 를 눌러 즐겨찾기를 추가하세요',
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
+  Widget _buildEmptyFavorites() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kDivider),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: kSurface,
+              borderRadius: BorderRadius.circular(16),
             ),
-          ],
-        ),
+            child: const Icon(Icons.star_outline_rounded, size: 30, color: kTextSecondary),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            '즐겨찾기가 없습니다',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kTextPrimary),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '검색에서 ★ 를 눌러 추가하세요',
+            style: TextStyle(fontSize: 13, color: kTextSecondary),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildFavoritesList() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-      child: Column(
-        children: [
-          for (int i = 0; i < _favorites.length; i++) ...[
-            if (i > 0) const Divider(height: 1, indent: 72, endIndent: 16),
-            _favoriteTile(_favorites[i]),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kDivider),
+        ),
+        child: Column(
+          children: [
+            for (int i = 0; i < _favorites.length; i++) ...[
+              if (i > 0) const Divider(height: 1, indent: 72, endIndent: 16, color: kDivider),
+              _favoriteTile(_favorites[i]),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -269,31 +419,145 @@ class _HomeScreenState extends State<HomeScreen> {
     final subtitle = [
       if (s.department.isNotEmpty) s.department,
       if (s.title.isNotEmpty) s.title,
-      if (phone.isNotEmpty) phone,
     ].join(' · ');
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: Colors.green[100],
-        child: const Icon(Icons.person, color: Colors.green),
+    return InkWell(
+      onTap: () => _showStaffDetails(context, s),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: kPrimaryLight,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.person_rounded, color: kPrimary, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    s.name,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kTextPrimary),
+                  ),
+                  if (subtitle.isNotEmpty)
+                    Text(
+                      subtitle,
+                      style: const TextStyle(fontSize: 12, color: kTextSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.star_rounded, color: Colors.amber, size: 22),
+              tooltip: '즐겨찾기 해제',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              onPressed: () => _toggleFavorite(s),
+            ),
+            if (phone.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: kPrimaryLight,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.call_rounded, color: kPrimary, size: 18),
+                  padding: EdgeInsets.zero,
+                  tooltip: '전화걸기',
+                  onPressed: () => _makePhoneCall(phone),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
-      title: Text(
-        s.name,
-        style: const TextStyle(fontWeight: FontWeight.bold),
+    );
+  }
+}
+
+class _ServiceCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconBgStart;
+  final Color iconBgEnd;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ServiceCard({
+    required this.icon,
+    required this.iconBgStart,
+    required this.iconBgEnd,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: kDivider),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [iconBgStart, iconBgEnd],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: Colors.white, size: 26),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: kTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(fontSize: 13, color: kTextSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFFD1D5DB), size: 22),
+            ],
+          ),
+        ),
       ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(fontSize: 12),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: phone.isNotEmpty
-          ? IconButton(
-              icon: const Icon(Icons.call, color: Colors.green),
-              tooltip: '전화걸기',
-              onPressed: () => _makePhoneCall(phone),
-            )
-          : null,
     );
   }
 }

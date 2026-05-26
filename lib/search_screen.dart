@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'db/database_helper.dart';
 import 'staff_model.dart';
 import 'state/favorites.dart';
+import 'main.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -15,8 +16,6 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Staff> _allStaff = [];
   List<Staff> _foundStaff = [];
   bool _isLoading = true;
-
-  // 0: 전체, 1: 이름/부서
   int _searchMode = 0;
   final TextEditingController _searchController = TextEditingController();
 
@@ -47,9 +46,7 @@ class _SearchScreenState extends State<SearchScreen> {
         ? _allStaff
         : await DatabaseHelper.instance.searchStaff(keyword, _searchMode);
     if (!mounted) return;
-    setState(() {
-      _foundStaff = results;
-    });
+    setState(() => _foundStaff = results);
   }
 
   Future<void> _toggleFavorite(Staff staff) async {
@@ -64,120 +61,147 @@ class _SearchScreenState extends State<SearchScreen> {
     final cleaned = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
     if (cleaned.isEmpty || cleaned == '0000') return;
     final Uri uri = Uri(scheme: 'tel', path: cleaned);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
   Future<void> _sendEmail(String email) async {
     if (email.isEmpty) return;
     final Uri uri = Uri(scheme: 'mailto', path: email);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
   void _showStaffDetails(BuildContext context, Staff staff) {
-    showDialog(
+    final phone = staff.tel.isNotEmpty && staff.tel != '0000'
+        ? staff.tel
+        : staff.cellTel;
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Row(
-            children: [
-              const Icon(Icons.person, color: Colors.green),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${staff.name} ${staff.title}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.fromLTRB(
+          24, 20, 24, MediaQuery.of(ctx).viewInsets.bottom + 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: kDivider,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            const SizedBox(height: 20),
+            Row(
               children: [
-                _detailRow(Icons.business, '부서', staff.department),
-                if (staff.location.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  _detailRow(Icons.location_on, '위치', staff.location),
-                ],
-                if (staff.tel.isNotEmpty && staff.tel != '0000') ...[
-                  const SizedBox(height: 10),
-                  _detailRow(Icons.phone, '교내전화', staff.tel),
-                ],
-                if (staff.cellTel.isNotEmpty &&
-                    staff.cellTel != '000-0000-0000') ...[
-                  const SizedBox(height: 10),
-                  _detailRow(Icons.smartphone, '휴대폰', staff.cellTel),
-                ],
-                if (staff.email.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  _detailRow(Icons.email, '이메일', staff.email),
-                ],
-                if (staff.chargeBusiness.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  _detailRow(Icons.work, '담당업무', staff.chargeBusiness),
-                ],
+                Container(
+                  width: 56, height: 56,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [kPrimary, Color(0xFF2A9D5C)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.person_rounded, color: Colors.white, size: 30),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        staff.name,
+                        style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.w800, color: kTextPrimary),
+                      ),
+                      if (staff.title.isNotEmpty)
+                        Text(
+                          staff.title,
+                          style: const TextStyle(
+                            fontSize: 14, color: kPrimary, fontWeight: FontWeight.w500),
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('닫기', style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 20),
+            const Divider(height: 1, color: kDivider),
+            const SizedBox(height: 16),
+            _detailRow(Icons.business_rounded, '부서', staff.department),
+            if (staff.location.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _detailRow(Icons.location_on_rounded, '위치', staff.location),
+            ],
+            if (staff.tel.isNotEmpty && staff.tel != '0000') ...[
+              const SizedBox(height: 12),
+              _detailRow(Icons.phone_rounded, '교내전화', staff.tel),
+            ],
+            if (staff.cellTel.isNotEmpty && staff.cellTel != '000-0000-0000') ...[
+              const SizedBox(height: 12),
+              _detailRow(Icons.smartphone_rounded, '휴대폰', staff.cellTel),
+            ],
+            if (staff.email.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _detailRow(Icons.email_rounded, '이메일', staff.email),
+            ],
+            if (staff.chargeBusiness.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _detailRow(Icons.work_rounded, '담당업무', staff.chargeBusiness),
+            ],
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                if (staff.email.isNotEmpty)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _sendEmail(staff.email);
+                      },
+                      icon: const Icon(Icons.email_rounded, size: 18),
+                      label: const Text('메일보내기'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: kPrimary,
+                        side: const BorderSide(color: kPrimary),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                if (staff.email.isNotEmpty && phone.isNotEmpty)
+                  const SizedBox(width: 12),
+                if (phone.isNotEmpty)
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _makePhoneCall(phone);
+                      },
+                      icon: const Icon(Icons.call_rounded, size: 18),
+                      label: const Text('전화걸기'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kPrimary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            if (staff.email.isNotEmpty)
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _sendEmail(staff.email);
-                },
-                icon: const Icon(Icons.email, size: 18),
-                label: const Text('메일보내기'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            if (staff.tel.isNotEmpty && staff.tel != '0000')
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _makePhoneCall(staff.tel);
-                },
-                icon: const Icon(Icons.call, size: 18),
-                label: const Text('전화걸기'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                ),
-              ),
           ],
-        );
-      },
-    );
-  }
-
-  Widget _favoriteStar(Staff staff) {
-    final id = staff.id;
-    final on = id != null && favoriteStaffIds.contains(id);
-    return SizedBox(
-      width: 40,
-      child: IconButton(
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(),
-        icon: Icon(
-          on ? Icons.star : Icons.star_border,
-          color: on ? Colors.amber : Colors.grey,
-          size: 22,
         ),
-        tooltip: on ? '즐겨찾기 해제' : '즐겨찾기 추가',
-        onPressed: id == null ? null : () => _toggleFavorite(staff),
       ),
     );
   }
@@ -186,18 +210,24 @@ class _SearchScreenState extends State<SearchScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.green),
-        const SizedBox(width: 8),
+        Container(
+          width: 32, height: 32,
+          decoration: BoxDecoration(
+            color: kPrimaryLight,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 16, color: kPrimary),
+        ),
+        const SizedBox(width: 12),
         SizedBox(
-          width: 56,
-          child: Text(label,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
-                  fontSize: 13)),
+          width: 60,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: kTextSecondary, fontWeight: FontWeight.w500),
+          ),
         ),
         Expanded(
-          child: Text(value, style: const TextStyle(fontSize: 13)),
+          child: Text(value, style: const TextStyle(fontSize: 13, color: kTextPrimary)),
         ),
       ],
     );
@@ -206,225 +236,259 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: kSurface,
       appBar: AppBar(
         title: const Text('교직원 검색'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: kTextPrimary,
         elevation: 0,
+        scrolledUnderElevation: 1,
+        shadowColor: const Color(0x18000000),
       ),
       body: _isLoading
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: Colors.green),
-                  SizedBox(height: 16),
-                  Text('교직원 정보를 불러오는 중...'),
+                  const CircularProgressIndicator(color: kPrimary),
+                  const SizedBox(height: 16),
+                  Text(
+                    '교직원 정보를 불러오는 중...',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                  ),
                 ],
               ),
             )
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  // 검색 모드 라디오 버튼
-                  Row(
+          : Column(
+              children: [
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  child: Column(
                     children: [
-                      RadioGroup<int>(
-                        groupValue: _searchMode,
-                        onChanged: (v) {
-                          setState(() => _searchMode = v!);
+                      SegmentedButton<int>(
+                        segments: const [
+                          ButtonSegment(
+                            value: 0,
+                            label: Text('전체'),
+                            icon: Icon(Icons.list_rounded, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: 1,
+                            label: Text('이름·부서'),
+                            icon: Icon(Icons.person_search_rounded, size: 16),
+                          ),
+                        ],
+                        selected: {_searchMode},
+                        onSelectionChanged: (s) {
+                          setState(() => _searchMode = s.first);
                           _runFilter(_searchController.text);
                         },
-                        child: Row(
-                          children: const [
-                            Radio<int>(value: 0),
-                            Text('전체'),
-                            Radio<int>(value: 1),
-                            Text('이름(부서)'),
-                          ],
+                        style: SegmentedButton.styleFrom(
+                          selectedBackgroundColor: kPrimaryLight,
+                          selectedForegroundColor: kPrimary,
+                          foregroundColor: kTextSecondary,
+                          side: const BorderSide(color: kDivider),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                       ),
-                      const Spacer(),
-                      Text(
-                        '총 ${_foundStaff.length}명',
-                        style: const TextStyle(
-                            fontSize: 12, color: Colors.grey),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _searchController,
+                        onChanged: _runFilter,
+                        style: const TextStyle(fontSize: 14, color: kTextPrimary),
+                        decoration: InputDecoration(
+                          hintText: '이름, 부서, 담당업무로 검색',
+                          hintStyle: const TextStyle(color: kTextSecondary, fontSize: 14),
+                          prefixIcon: const Icon(Icons.search_rounded, color: kPrimary, size: 20),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded, size: 18, color: kTextSecondary),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _runFilter('');
+                                  },
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: kSurface,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: kDivider),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: kDivider),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: kPrimary, width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
                       ),
                     ],
                   ),
-                  // 검색창
-                  TextField(
-                    controller: _searchController,
-                    onChanged: _runFilter,
-                    decoration: InputDecoration(
-                      hintText: '이름, 부서, 담당업무 검색',
-                      suffixIcon:
-                          const Icon(Icons.search, color: Colors.green),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8.0),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    children: [
+                      const Text(
+                        '검색 결과',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8.0),
-                        borderSide:
-                            const BorderSide(color: Colors.green),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: kPrimaryLight,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${_foundStaff.length}명',
+                          style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600, color: kPrimary),
+                        ),
                       ),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16.0),
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  // 헤더
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10.0),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      border: const Border(
-                        top: BorderSide(color: Colors.grey),
-                        bottom: BorderSide(color: Colors.grey),
-                      ),
-                    ),
-                    child: const Row(
+                ),
+                Expanded(
+                  child: _foundStaff.isNotEmpty
+                      ? ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          itemCount: _foundStaff.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) => _staffCard(_foundStaff[index]),
+                        )
+                      : Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.search_off_rounded, size: 56, color: Colors.grey[300]),
+                              const SizedBox(height: 12),
+                              Text(
+                                '검색 결과가 없습니다',
+                                style: TextStyle(fontSize: 15, color: Colors.grey[400]),
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _staffCard(Staff staff) {
+    final id = staff.id;
+    final isFav = id != null && favoriteStaffIds.contains(id);
+    final phone = staff.tel.isNotEmpty && staff.tel != '0000'
+        ? staff.tel
+        : staff.cellTel;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: () => _showStaffDetails(context, staff),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: kDivider),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  color: kPrimaryLight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.person_rounded, color: kPrimary, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Expanded(
-                            flex: 3,
-                            child: Center(
-                                child: Text('이름(부서/직함)',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13)))),
-                        Expanded(
-                            flex: 3,
-                            child: Center(
-                                child: Text('교내전화',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13)))),
-                        Expanded(
-                            flex: 3,
-                            child: Center(
-                                child: Text('사무실위치',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13)))),
-                        SizedBox(width: 40), // 즐겨찾기 별 컬럼 자리
+                        Text(
+                          staff.name,
+                          style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700, color: kTextPrimary),
+                        ),
+                        if (staff.title.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: kPrimaryLight,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              staff.title,
+                              style: const TextStyle(
+                                fontSize: 11, color: kPrimary, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
+                    if (staff.department.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        staff.department,
+                        style: const TextStyle(fontSize: 12, color: kTextSecondary),
+                      ),
+                    ],
+                    if (phone.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        phone,
+                        style: const TextStyle(fontSize: 12, color: kTextSecondary),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 36, height: 36,
+                    child: IconButton(
+                      icon: Icon(
+                        isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+                        color: isFav ? Colors.amber : Colors.grey[350],
+                        size: 22,
+                      ),
+                      onPressed: id == null ? null : () => _toggleFavorite(staff),
+                      padding: EdgeInsets.zero,
+                    ),
                   ),
-                  // 목록
-                  Expanded(
-                    child: _foundStaff.isNotEmpty
-                        ? ListView.builder(
-                            itemCount: _foundStaff.length,
-                            itemBuilder: (context, index) {
-                              final staff = _foundStaff[index];
-                              return InkWell(
-                                onTap: () =>
-                                    _showStaffDetails(context, staff),
-                                child: Container(
-                                  decoration: const BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(
-                                          color: Colors.grey,
-                                          width: 0.5),
-                                    ),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 12.0),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 3,
-                                        child: Column(
-                                          children: [
-                                            Text(staff.name,
-                                                style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold,
-                                                    fontSize: 14)),
-                                            Text(staff.department,
-                                                style: const TextStyle(
-                                                    fontSize: 11,
-                                                    color: Colors.grey),
-                                                textAlign:
-                                                    TextAlign.center),
-                                            if (staff.title.isNotEmpty)
-                                              Text(staff.title,
-                                                  style: const TextStyle(
-                                                      fontSize: 11,
-                                                      color: Colors.green),
-                                                  textAlign:
-                                                      TextAlign.center),
-                                          ],
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 3,
-                                        child: Center(
-                                          child: staff.tel.isNotEmpty &&
-                                                  staff.tel != '0000'
-                                              ? TextButton(
-                                                  onPressed: () =>
-                                                      _makePhoneCall(
-                                                          staff.tel),
-                                                  style:
-                                                      TextButton.styleFrom(
-                                                    padding:
-                                                        EdgeInsets.zero,
-                                                    minimumSize:
-                                                        Size.zero,
-                                                    tapTargetSize:
-                                                        MaterialTapTargetSize
-                                                            .shrinkWrap,
-                                                  ),
-                                                  child: Text(
-                                                    staff.tel,
-                                                    style: const TextStyle(
-                                                      color: Colors.blue,
-                                                      decoration:
-                                                          TextDecoration
-                                                              .underline,
-                                                      fontSize: 12,
-                                                    ),
-                                                    textAlign:
-                                                        TextAlign.center,
-                                                  ),
-                                                )
-                                              : const Text('-',
-                                                  style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.grey)),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 3,
-                                        child: Center(
-                                          child: Text(
-                                            staff.location.isNotEmpty
-                                                ? staff.location
-                                                : '-',
-                                            textAlign: TextAlign.center,
-                                            style: const TextStyle(
-                                                fontSize: 11),
-                                          ),
-                                        ),
-                                      ),
-                                      _favoriteStar(staff),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          )
-                        : const Center(
-                            child: Text('검색 결과가 없습니다.',
-                                style: TextStyle(fontSize: 16)),
-                          ),
-                  ),
+                  if (phone.isNotEmpty)
+                    SizedBox(
+                      width: 36, height: 36,
+                      child: IconButton(
+                        icon: const Icon(Icons.call_rounded, color: kPrimary, size: 20),
+                        onPressed: () => _makePhoneCall(phone),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
                 ],
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
