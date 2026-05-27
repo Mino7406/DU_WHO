@@ -62,7 +62,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _addBotMessage(reply);
     } catch (e) {
       if (!mounted) return;
-      _addBotMessage('오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      _addBotMessage('오류: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
