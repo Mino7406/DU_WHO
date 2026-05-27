@@ -62,7 +62,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _addBotMessage(reply);
     } catch (e) {
       if (!mounted) return;
-      _addBotMessage('오류: $e');
+      _addBotMessage(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

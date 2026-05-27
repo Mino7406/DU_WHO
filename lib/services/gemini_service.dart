@@ -45,7 +45,7 @@ class GeminiService {
           .timeout(const Duration(seconds: 30));
     } on TimeoutException {
       _history.removeLast();
-      throw Exception('응답 시간이 초과되었습니다. 네트워크를 확인해주세요.');
+      throw Exception('응답 시간이 초과되었습니다.\n네트워크 연결 상태와 VPN이 켜져 있는지 확인해주세요.');
     }
 
     if (response.statusCode != 200) {
