@@ -1,7 +1,13 @@
-import 'home_screen.dart';
-import 'db/database_helper.dart';
-import 'state/favorites.dart';
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+
+import 'db/database_helper.dart';
+import 'home_screen.dart';
+import 'state/favorites.dart';
 
 const Color kPrimary = Color(0xFF1A6B3C);
 const Color kPrimaryDark = Color(0xFF0D4F2C);
@@ -15,7 +21,20 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await DatabaseHelper.instance.database;
   await loadFavoritesFromDb();
+  await _saveDbPathToNative();
   runApp(const DuWhoApp());
+}
+
+/// Android 네이티브(CallOverlayService)가 SQLite DB를 직접 조회할 수 있도록
+/// DB 파일 경로를 SharedPreferences에 저장한다.
+Future<void> _saveDbPathToNative() async {
+  if (!Platform.isAndroid) return;
+  final dir = await getApplicationDocumentsDirectory();
+  final dbPath = p.join(dir.path, 'du_who.db');
+  const channel = MethodChannel('du_who/call_overlay');
+  try {
+    await channel.invokeMethod('saveDbPath', {'path': dbPath});
+  } catch (_) {}
 }
 
 class DuWhoApp extends StatelessWidget {

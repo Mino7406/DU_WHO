@@ -1,4 +1,8 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodChannel;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'chat_screen.dart';
@@ -23,6 +27,35 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadFavorites();
+    if (Platform.isAndroid) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _requestCallPermissions());
+    }
+  }
+
+  // ─── 수신 전화 팝업을 위한 권한 요청 ──────────────────────────
+
+  Future<void> _requestCallPermissions() async {
+    const ch = MethodChannel('du_who/call_overlay');
+
+    // ① 전화 상태 읽기 (READ_PHONE_STATE)
+    final phoneStatus = await Permission.phone.status;
+    if (phoneStatus.isDenied) await Permission.phone.request();
+
+    // ② READ_CALL_LOG — Android 10+에서 PHONE 그룹과 분리됨
+    //    없으면 수신 번호를 받지 못해 교직원 조회 불가
+    final hasCallLog = await ch.invokeMethod<bool>('checkCallLogPermission') ?? true;
+    if (!hasCallLog) {
+      await ch.invokeMethod('requestCallLogPermission');
+      await Future.delayed(const Duration(milliseconds: 1500));
+    }
+
+    // ③ Android 13+ 알림 권한 (수신 전화 알림 표시에 필요)
+    final notifStatus = await Permission.notification.status;
+    if (notifStatus.isDenied) await Permission.notification.request();
+
+    // ④ Samsung 배터리 최적화 제외 (백그라운드 서비스 유지)
+    if (!mounted) return;
+    await ch.invokeMethod('requestBatteryExemption');
   }
 
   Future<void> _loadFavorites() async {
