@@ -5,10 +5,12 @@ import 'package:flutter/services.dart' show MethodChannel;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'auth.dart';
 import 'chat_screen.dart';
 import 'db/database_helper.dart';
 import 'main.dart';
 import 'search_screen.dart';
+import 'settings_screen.dart';
 import 'staff_model.dart';
 import 'state/favorites.dart';
 
@@ -32,28 +34,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ─── 수신 전화 팝업을 위한 권한 요청 ──────────────────────────
-
   Future<void> _requestCallPermissions() async {
     const ch = MethodChannel('du_who/call_overlay');
 
-    // ① 전화 상태 읽기 (READ_PHONE_STATE)
     final phoneStatus = await Permission.phone.status;
     if (phoneStatus.isDenied) await Permission.phone.request();
 
-    // ② READ_CALL_LOG — Android 10+에서 PHONE 그룹과 분리됨
-    //    없으면 수신 번호를 받지 못해 교직원 조회 불가
     final hasCallLog = await ch.invokeMethod<bool>('checkCallLogPermission') ?? true;
     if (!hasCallLog) {
       await ch.invokeMethod('requestCallLogPermission');
       await Future.delayed(const Duration(milliseconds: 1500));
     }
 
-    // ③ Android 13+ 알림 권한 (수신 전화 알림 표시에 필요)
     final notifStatus = await Permission.notification.status;
     if (notifStatus.isDenied) await Permission.notification.request();
 
-    // ④ Samsung 배터리 최적화 제외 (백그라운드 서비스 유지)
     if (!mounted) return;
     await ch.invokeMethod('requestBatteryExemption');
   }
@@ -90,32 +85,35 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showStaffDetails(BuildContext context, Staff staff) {
-    final phone = staff.tel.isNotEmpty && staff.tel != '0000'
-        ? staff.tel
-        : staff.cellTel;
+    final auth = AuthService.instance;
+    final phone = auth.effectivePhone(staff.tel, staff.cellTel);
+    final location = auth.effectiveLocation(staff.location);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
+          final cs = Theme.of(ctx).colorScheme;
           final isFav = staff.id != null && favoriteStaffIds.contains(staff.id);
           return Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLowest,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             ),
             padding: EdgeInsets.fromLTRB(
-              24, 20, 24, MediaQuery.of(ctx).viewInsets.bottom + 40),
+                24, 20, 24, MediaQuery.of(ctx).viewInsets.bottom + 40),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Center(
                   child: Container(
-                    width: 40, height: 4,
+                    width: 40,
+                    height: 4,
                     decoration: BoxDecoration(
-                      color: kDivider,
+                      color: cs.outlineVariant,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -124,7 +122,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   children: [
                     Container(
-                      width: 56, height: 56,
+                      width: 56,
+                      height: 56,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [kPrimary, Color(0xFF2A9D5C)],
@@ -133,7 +132,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(Icons.person_rounded, color: Colors.white, size: 30),
+                      child: const Icon(Icons.person_rounded,
+                          color: Colors.white, size: 30),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -142,14 +142,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text(
                             staff.name,
-                            style: const TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.w800, color: kTextPrimary),
+                            style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: cs.onSurface),
                           ),
-                          if (staff.title.isNotEmpty)
+                          // 직위: 교직원만 표시
+                          if (auth.isStaff && staff.title.isNotEmpty)
                             Text(
                               staff.title,
                               style: const TextStyle(
-                                fontSize: 14, color: kPrimary, fontWeight: FontWeight.w500),
+                                  fontSize: 14,
+                                  color: kPrimary,
+                                  fontWeight: FontWeight.w500),
                             ),
                         ],
                       ),
@@ -157,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     IconButton(
                       icon: Icon(
                         isFav ? Icons.star_rounded : Icons.star_outline_rounded,
-                        color: isFav ? Colors.amber : kTextSecondary,
+                        color: isFav ? Colors.amber : cs.onSurfaceVariant,
                         size: 28,
                       ),
                       tooltip: isFav ? '즐겨찾기 해제' : '즐겨찾기 추가',
@@ -173,28 +178,32 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                const Divider(height: 1, color: kDivider),
+                Divider(height: 1, color: cs.outlineVariant),
                 const SizedBox(height: 16),
-                _detailRow(Icons.business_rounded, '부서', staff.department),
-                if (staff.location.isNotEmpty) ...[
+                _detailRow(ctx, Icons.business_rounded, '부서', staff.department),
+                if (location.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  _detailRow(Icons.location_on_rounded, '위치', staff.location),
+                  _detailRow(ctx, Icons.location_on_rounded, '위치', location),
                 ],
                 if (staff.tel.isNotEmpty && staff.tel != '0000') ...[
                   const SizedBox(height: 12),
-                  _detailRow(Icons.phone_rounded, '교내전화', staff.tel),
+                  _detailRow(ctx, Icons.phone_rounded, '교내전화', staff.tel),
                 ],
-                if (staff.cellTel.isNotEmpty && staff.cellTel != '000-0000-0000') ...[
+                // 휴대전화: 교직원만 표시
+                if (auth.isStaff &&
+                    staff.cellTel.isNotEmpty &&
+                    staff.cellTel != '000-0000-0000') ...[
                   const SizedBox(height: 12),
-                  _detailRow(Icons.smartphone_rounded, '휴대폰', staff.cellTel),
+                  _detailRow(ctx, Icons.smartphone_rounded, '휴대폰', staff.cellTel),
                 ],
                 if (staff.email.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  _detailRow(Icons.email_rounded, '이메일', staff.email),
+                  _detailRow(ctx, Icons.email_rounded, '이메일', staff.email),
                 ],
                 if (staff.chargeBusiness.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  _detailRow(Icons.work_rounded, '담당업무', staff.chargeBusiness),
+                  _detailRow(
+                      ctx, Icons.work_rounded, '담당업무', staff.chargeBusiness),
                 ],
                 const SizedBox(height: 24),
                 Row(
@@ -211,7 +220,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: kPrimary,
                             side: const BorderSide(color: kPrimary),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                         ),
@@ -231,7 +241,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             backgroundColor: kPrimary,
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                         ),
@@ -246,14 +257,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _detailRow(IconData icon, String label, String value) {
+  Widget _detailRow(
+      BuildContext ctx, IconData icon, String label, String value) {
+    final cs = Theme.of(ctx).colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 32, height: 32,
+          width: 32,
+          height: 32,
           decoration: BoxDecoration(
-            color: kPrimaryLight,
+            color: cs.primaryContainer,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, size: 16, color: kPrimary),
@@ -263,11 +277,15 @@ class _HomeScreenState extends State<HomeScreen> {
           width: 60,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 13, color: kTextSecondary, fontWeight: FontWeight.w500),
+            style: TextStyle(
+                fontSize: 13,
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w500),
           ),
         ),
         Expanded(
-          child: Text(value, style: const TextStyle(fontSize: 13, color: kTextPrimary)),
+          child: Text(value,
+              style: TextStyle(fontSize: 13, color: cs.onSurface)),
         ),
       ],
     );
@@ -275,8 +293,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final auth = AuthService.instance;
+
     return Scaffold(
-      backgroundColor: kSurface,
+      backgroundColor: cs.surface,
       appBar: AppBar(
         title: const Text(
           'DU-WHO',
@@ -287,15 +308,41 @@ class _HomeScreenState extends State<HomeScreen> {
             letterSpacing: -0.5,
           ),
         ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        shadowColor: const Color(0x18000000),
         actions: [
+          // 신분 뱃지
+          Container(
+            margin: const EdgeInsets.only(right: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: auth.isStaff
+                  ? kPrimary.withValues(alpha: 0.12)
+                  : const Color(0xFF1565A8).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              auth.isStaff ? '교직원' : '학생',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: auth.isStaff ? kPrimary : const Color(0xFF1565A8),
+              ),
+            ),
+          ),
           IconButton(
-            icon: const Icon(Icons.logout_rounded, color: kTextSecondary),
+            icon: Icon(Icons.settings_rounded, color: cs.onSurfaceVariant),
+            tooltip: '설정',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.logout_rounded, color: cs.onSurfaceVariant),
             tooltip: '로그아웃',
             onPressed: () {
+              AuthService.instance.logout();
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -312,13 +359,13 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionTitle('서비스'),
+              _buildSectionTitle(context, '서비스'),
               const SizedBox(height: 12),
-              _buildServiceCards(),
+              _buildServiceCards(context),
               const SizedBox(height: 24),
-              _buildSectionTitle('즐겨찾기'),
+              _buildSectionTitle(context, '즐겨찾기'),
               const SizedBox(height: 12),
-              _buildFavoritesSection(),
+              _buildFavoritesSection(context),
               const SizedBox(height: 32),
             ],
           ),
@@ -327,21 +374,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w700,
-          color: kTextPrimary,
+          color: cs.onSurface,
         ),
       ),
     );
   }
 
-  Widget _buildServiceCards() {
+  Widget _buildServiceCards(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -379,25 +427,26 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFavoritesSection() {
+  Widget _buildFavoritesSection(BuildContext context) {
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 32),
         child: Center(child: CircularProgressIndicator(color: kPrimary)),
       );
     }
-    if (_favorites.isEmpty) return _buildEmptyFavorites();
-    return _buildFavoritesList();
+    if (_favorites.isEmpty) return _buildEmptyFavorites(context);
+    return _buildFavoritesList(context);
   }
 
-  Widget _buildEmptyFavorites() {
+  Widget _buildEmptyFavorites(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kDivider),
+        border: Border.all(color: cs.outlineVariant),
       ),
       child: Column(
         children: [
@@ -405,41 +454,51 @@ class _HomeScreenState extends State<HomeScreen> {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: kSurface,
+              color: cs.surface,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.star_outline_rounded, size: 30, color: kTextSecondary),
+            child: Icon(Icons.star_outline_rounded,
+                size: 30, color: cs.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             '즐겨찾기가 없습니다',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kTextPrimary),
+            style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             '검색에서 ★ 를 눌러 추가하세요',
-            style: TextStyle(fontSize: 13, color: kTextSecondary),
+            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFavoritesList() {
+  Widget _buildFavoritesList(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cs.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: kDivider),
+          border: Border.all(color: cs.outlineVariant),
         ),
         child: Column(
           children: [
             for (int i = 0; i < _favorites.length; i++) ...[
-              if (i > 0) const Divider(height: 1, indent: 72, endIndent: 16, color: kDivider),
-              _favoriteTile(_favorites[i]),
+              if (i > 0)
+                Divider(
+                    height: 1,
+                    indent: 72,
+                    endIndent: 16,
+                    color: cs.outlineVariant),
+              _favoriteTile(context, _favorites[i]),
             ],
           ],
         ),
@@ -447,11 +506,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _favoriteTile(Staff s) {
-    final phone = s.tel.isNotEmpty && s.tel != '0000' ? s.tel : s.cellTel;
+  Widget _favoriteTile(BuildContext context, Staff s) {
+    final cs = Theme.of(context).colorScheme;
+    final auth = AuthService.instance;
+    final phone = auth.effectivePhone(s.tel, s.cellTel);
+
+    // 학생: 직위 미표시
     final subtitle = [
       if (s.department.isNotEmpty) s.department,
-      if (s.title.isNotEmpty) s.title,
+      if (auth.isStaff && s.title.isNotEmpty) s.title,
     ].join(' · ');
 
     return InkWell(
@@ -464,7 +527,7 @@ class _HomeScreenState extends State<HomeScreen> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: kPrimaryLight,
+                color: cs.primaryContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(Icons.person_rounded, color: kPrimary, size: 24),
@@ -476,12 +539,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text(
                     s.name,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kTextPrimary),
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface),
                   ),
                   if (subtitle.isNotEmpty)
                     Text(
                       subtitle,
-                      style: const TextStyle(fontSize: 12, color: kTextSecondary),
+                      style: TextStyle(
+                          fontSize: 12, color: cs.onSurfaceVariant),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -489,10 +556,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.star_rounded, color: Colors.amber, size: 22),
+              icon: const Icon(Icons.star_rounded,
+                  color: Colors.amber, size: 22),
               tooltip: '즐겨찾기 해제',
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              constraints:
+                  const BoxConstraints(minWidth: 36, minHeight: 36),
               onPressed: () => _toggleFavorite(s),
             ),
             if (phone.isNotEmpty) ...[
@@ -501,11 +570,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: kPrimaryLight,
+                  color: cs.primaryContainer,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.call_rounded, color: kPrimary, size: 18),
+                  icon: const Icon(Icons.call_rounded,
+                      color: kPrimary, size: 18),
                   padding: EdgeInsets.zero,
                   tooltip: '전화걸기',
                   onPressed: () => _makePhoneCall(phone),
@@ -538,8 +608,9 @@ class _ServiceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Material(
-      color: Colors.white,
+      color: cs.surfaceContainerLowest,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -548,7 +619,7 @@ class _ServiceCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: kDivider),
+            border: Border.all(color: cs.outlineVariant),
           ),
           child: Row(
             children: [
@@ -572,21 +643,23 @@ class _ServiceCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: kTextPrimary,
+                        color: cs.onSurface,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       subtitle,
-                      style: const TextStyle(fontSize: 13, color: kTextSecondary),
+                      style: TextStyle(
+                          fontSize: 13, color: cs.onSurfaceVariant),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: Color(0xFFD1D5DB), size: 22),
+              Icon(Icons.chevron_right_rounded,
+                  color: cs.outlineVariant, size: 22),
             ],
           ),
         ),

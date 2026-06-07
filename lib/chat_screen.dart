@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'services/gemini_service.dart';
 import 'main.dart';
+import 'services/gemini_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -76,13 +76,15 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: kSurface,
+      backgroundColor: cs.surface,
       appBar: AppBar(
         title: Row(
           children: [
             Container(
-              width: 32, height: 32,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [kPrimary, Color(0xFF2A9D5C)],
@@ -91,20 +93,16 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 18),
+              child: const Icon(Icons.smart_toy_rounded,
+                  color: Colors.white, size: 18),
             ),
             const SizedBox(width: 10),
             const Text('AI 교직원 안내'),
           ],
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: kTextPrimary,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        shadowColor: const Color(0x18000000),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: kTextSecondary),
+            icon: Icon(Icons.refresh_rounded, color: cs.onSurfaceVariant),
             tooltip: '대화 초기화',
             onPressed: _resetChat,
           ),
@@ -123,19 +121,20 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          _buildInputBar(),
+          _buildInputBar(context),
         ],
       ),
     );
   }
 
-  Widget _buildInputBar() {
+  Widget _buildInputBar(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: EdgeInsets.fromLTRB(
-        16, 10, 16, MediaQuery.of(context).viewInsets.bottom + 20),
+          16, 10, 16, MediaQuery.of(context).viewInsets.bottom + 20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: const Border(top: BorderSide(color: kDivider)),
+        color: cs.surfaceContainerLowest,
+        border: Border(top: BorderSide(color: cs.outlineVariant)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -151,20 +150,19 @@ class _ChatScreenState extends State<ChatScreen> {
               controller: _controller,
               onSubmitted: (_) => _sendMessage(),
               textInputAction: TextInputAction.send,
-              style: const TextStyle(fontSize: 14, color: kTextPrimary),
+              style: TextStyle(fontSize: 14, color: cs.onSurface),
               decoration: InputDecoration(
                 hintText: '질문을 입력하세요...',
-                hintStyle: const TextStyle(color: kTextSecondary, fontSize: 14),
-                filled: true,
-                fillColor: kSurface,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                fillColor: cs.surface,
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: const BorderSide(color: kDivider),
+                  borderSide: BorderSide(color: cs.outlineVariant),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: const BorderSide(color: kDivider),
+                  borderSide: BorderSide(color: cs.outlineVariant),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
@@ -178,7 +176,8 @@ class _ChatScreenState extends State<ChatScreen> {
             onTap: _sendMessage,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 46, height: 46,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
                 gradient: _isLoading
                     ? null
@@ -187,14 +186,20 @@ class _ChatScreenState extends State<ChatScreen> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                color: _isLoading ? kDivider : null,
+                color: _isLoading ? null : null,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.arrow_upward_rounded,
-                color: _isLoading ? kTextSecondary : Colors.white,
-                size: 22,
-              ),
+              child: _isLoading
+                  ? Container(
+                      decoration: BoxDecoration(
+                        color: cs.outlineVariant,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.arrow_upward_rounded,
+                          color: cs.onSurfaceVariant, size: 22),
+                    )
+                  : const Icon(Icons.arrow_upward_rounded,
+                      color: Colors.white, size: 22),
             ),
           ),
         ],
@@ -215,16 +220,19 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final isUser = message.isUser;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isUser) ...[
             Container(
-              width: 32, height: 32,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [kPrimary, Color(0xFF2A9D5C)],
@@ -233,7 +241,8 @@ class _MessageBubble extends StatelessWidget {
                 ),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 18),
+              child: const Icon(Icons.smart_toy_rounded,
+                  color: Colors.white, size: 18),
             ),
             const SizedBox(width: 8),
           ],
@@ -251,19 +260,19 @@ class _MessageBubble extends StatelessWidget {
                         end: Alignment.bottomRight,
                       )
                     : null,
-                color: isUser ? null : Colors.white,
+                color: isUser ? null : cs.surfaceContainerLowest,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
                   bottomLeft: Radius.circular(isUser ? 16 : 4),
                   bottomRight: Radius.circular(isUser ? 4 : 16),
                 ),
-                border: isUser ? null : Border.all(color: kDivider),
+                border: isUser ? null : Border.all(color: cs.outlineVariant),
               ),
               child: Text(
                 message.text,
                 style: TextStyle(
-                  color: isUser ? Colors.white : kTextPrimary,
+                  color: isUser ? Colors.white : cs.onSurface,
                   fontSize: 14,
                   height: 1.55,
                 ),
@@ -281,13 +290,15 @@ class _TypingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Container(
-            width: 32, height: 32,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [kPrimary, Color(0xFF2A9D5C)],
@@ -296,28 +307,29 @@ class _TypingIndicator extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 18),
+            child: const Icon(Icons.smart_toy_rounded,
+                color: Colors.white, size: 18),
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cs.surfaceContainerLowest,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
                 bottomRight: Radius.circular(16),
                 bottomLeft: Radius.circular(4),
               ),
-              border: Border.all(color: kDivider),
+              border: Border.all(color: cs.outlineVariant),
             ),
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _AnimatedDot(delay: 0),
-                const SizedBox(width: 5),
+                SizedBox(width: 5),
                 _AnimatedDot(delay: 200),
-                const SizedBox(width: 5),
+                SizedBox(width: 5),
                 _AnimatedDot(delay: 400),
               ],
             ),
@@ -364,12 +376,14 @@ class _AnimatedDotState extends State<_AnimatedDot>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return FadeTransition(
       opacity: _anim,
       child: Container(
-        width: 7, height: 7,
-        decoration: const BoxDecoration(
-          color: kTextSecondary,
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(
+          color: cs.onSurfaceVariant,
           shape: BoxShape.circle,
         ),
       ),

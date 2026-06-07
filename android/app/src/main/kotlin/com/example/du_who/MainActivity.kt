@@ -36,6 +36,12 @@ class MainActivity : FlutterActivity() {
                         }
                         result.success(null)
                     }
+                    "saveUserRole" -> {
+                        val isStaff = call.argument<Boolean>("isStaff") ?: false
+                        getSharedPreferences(PREFS, MODE_PRIVATE)
+                            .edit().putBoolean(KEY_IS_STAFF, isStaff).apply()
+                        result.success(null)
+                    }
                     "requestBatteryExemption" -> {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                             val pm = getSystemService(PowerManager::class.java)
@@ -61,6 +67,7 @@ class MainActivity : FlutterActivity() {
         const val CHANNEL      = "du_who/call_overlay"
         const val PREFS        = "du_who_prefs"
         const val KEY_DB_PATH  = "db_path"
+        const val KEY_IS_STAFF = "is_staff"
         private const val REQ_CALL_LOG = 1002
     }
 }

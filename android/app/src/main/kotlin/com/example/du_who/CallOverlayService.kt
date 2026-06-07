@@ -33,9 +33,11 @@ class CallOverlayService : Service() {
 
         // DB 조회 → 알림 표시 → 서비스 종료
         Thread {
-            val staff = queryStaff(rawNumber)
+            val isStaff = getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE)
+                .getBoolean(MainActivity.KEY_IS_STAFF, false)
+            val staff = queryStaff(rawNumber, isStaff)
             handler.post {
-                showCallerNotification(rawNumber, staff)
+                showCallerNotification(rawNumber, staff, isStaff)
                 stopForegroundCompat()
                 stopSelf()
             }
@@ -48,25 +50,26 @@ class CallOverlayService : Service() {
 
     // ─── 발신자 알림 ──────────────────────────────────────────
 
-    private fun showCallerNotification(number: String, staff: StaffInfo?) {
+    private fun showCallerNotification(number: String, staff: StaffInfo?, isStaff: Boolean) {
+        // DB에 등록된 교직원 번호일 때만 알림 표시
+        if (staff == null) return
+
         val nm = getSystemService(NotificationManager::class.java) ?: return
 
-        val title = if (staff != null) "📞 ${staff.name}" else "📞 수신 전화"
-        val body  = when {
-            staff != null -> buildString {
-                if (staff.department.isNotEmpty()) append(staff.department)
-                if (staff.title.isNotEmpty()) {
-                    if (isNotEmpty()) append(" · ")
-                    append(staff.title)
-                }
-                if (staff.location.isNotEmpty()) {
-                    if (isNotEmpty()) append("  ")
-                    append(staff.location)
-                }
-                if (isEmpty()) append(number)
+        val title = "📞 ${staff.name}"
+        val body = buildString {
+            if (staff.department.isNotEmpty()) append(staff.department)
+            // 직위: 교직원 계정만 표시
+            if (isStaff && staff.title.isNotEmpty()) {
+                if (isNotEmpty()) append(" · ")
+                append(staff.title)
             }
-            number.isNotEmpty() -> number
-            else -> "번호 확인 불가 (통화기록 권한 확인)"
+            if (staff.location.isNotEmpty()) {
+                if (isNotEmpty()) append("  ")
+                // 학생: 건물명만(요약), 교직원: 전체
+                append(if (isStaff) staff.location else summarizeLocation(staff.location))
+            }
+            if (isEmpty()) append(number)
         }
 
         val notif = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -104,7 +107,7 @@ class CallOverlayService : Service() {
         val location: String,
     )
 
-    private fun queryStaff(rawNumber: String): StaffInfo? {
+    private fun queryStaff(rawNumber: String, isStaff: Boolean): StaffInfo? {
         val dbPath = getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE)
             .getString(MainActivity.KEY_DB_PATH, null) ?: return null
 
@@ -115,14 +118,26 @@ class CallOverlayService : Service() {
 
         return try {
             SQLiteDatabase.openDatabase(dbPath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                val sql = """
-                    SELECT name, department, title, location FROM staff
-                    WHERE REPLACE(REPLACE(tel,    '-',''),' ','') = ?
-                       OR REPLACE(REPLACE(cell_tel,'-',''),' ','') = ?
-                       OR ? LIKE '%' || REPLACE(REPLACE(tel,'-',''),' ','')
-                    LIMIT 1
-                """.trimIndent()
-                db.rawQuery(sql, arrayOf(cleaned, cleaned, cleaned)).use { c ->
+                // 학생: 교내전화(tel)만 매칭, 교직원: 교내+휴대전화 모두 매칭
+                val (sql, args) = if (isStaff) {
+                    val q = """
+                        SELECT name, department, title, location FROM staff
+                        WHERE REPLACE(REPLACE(tel,     '-',''),' ','') = ?
+                           OR REPLACE(REPLACE(cell_tel,'-',''),' ','') = ?
+                           OR ? LIKE '%' || REPLACE(REPLACE(tel,'-',''),' ','')
+                        LIMIT 1
+                    """.trimIndent()
+                    Pair(q, arrayOf(cleaned, cleaned, cleaned))
+                } else {
+                    val q = """
+                        SELECT name, department, title, location FROM staff
+                        WHERE REPLACE(REPLACE(tel,'-',''),' ','') = ?
+                           OR ? LIKE '%' || REPLACE(REPLACE(tel,'-',''),' ','')
+                        LIMIT 1
+                    """.trimIndent()
+                    Pair(q, arrayOf(cleaned, cleaned))
+                }
+                db.rawQuery(sql, args).use { c ->
                     if (!c.moveToFirst()) return null
                     StaffInfo(
                         name       = c.getString(0) ?: return null,
@@ -135,6 +150,13 @@ class CallOverlayService : Service() {
         } catch (_: Exception) {
             null
         }
+    }
+
+    // 학생용: 건물명만 추출 ("공학관 301호" → "공학관")
+    private fun summarizeLocation(location: String): String {
+        val parts = location.trim().split(Regex("\\s+"))
+        val summary = parts.takeWhile { p -> p.none { c -> c.isDigit() } }.joinToString(" ")
+        return summary.ifEmpty { parts.firstOrNull() ?: location }
     }
 
     // ─── 포그라운드 서비스 ────────────────────────────────────

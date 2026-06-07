@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 import '../db/database_helper.dart';
@@ -45,7 +46,10 @@ class GeminiService {
           .timeout(const Duration(seconds: 30));
     } on TimeoutException {
       _history.removeLast();
-      throw Exception('응답 시간이 초과되었습니다.\n네트워크 연결 상태와 VPN이 켜져 있는지 확인해주세요.');
+      throw Exception('응답 시간이 초과되었습니다.\n네트워크 연결 상태와 VPN을 확인해주세요.');
+    } on SocketException {
+      _history.removeLast();
+      throw Exception('서버에 연결할 수 없습니다.\nVPN이 켜져 있으면 꺼주세요.\n(Groq API가 VPN 환경에서 차단될 수 있습니다.)');
     }
 
     if (response.statusCode != 200) {
@@ -70,8 +74,9 @@ class GeminiService {
       buffer.write('이름: ${s.name}');
       if (s.department.isNotEmpty) buffer.write(', 부서: ${s.department}');
       if (s.title.isNotEmpty) buffer.write(', 직함: ${s.title}');
-      if (s.chargeBusiness.isNotEmpty)
+      if (s.chargeBusiness.isNotEmpty) {
         buffer.write(', 담당업무: ${s.chargeBusiness}');
+      }
       if (s.tel.isNotEmpty && s.tel != '0000') buffer.write(', 전화: ${s.tel}');
       if (s.email.isNotEmpty) buffer.write(', 이메일: ${s.email}');
       if (s.location.isNotEmpty) buffer.write(', 위치: ${s.location}');
