@@ -124,7 +124,11 @@ class CallOverlayService : Service() {
                         SELECT name, department, title, location FROM staff
                         WHERE REPLACE(REPLACE(tel,     '-',''),' ','') = ?
                            OR REPLACE(REPLACE(cell_tel,'-',''),' ','') = ?
-                           OR ? LIKE '%' || REPLACE(REPLACE(tel,'-',''),' ','')
+                           OR (
+                               LENGTH(REPLACE(REPLACE(tel,'-',''),' ','')) >= 4
+                               AND REPLACE(REPLACE(tel,'-',''),' ','') NOT IN ('','0000')
+                               AND ? LIKE '%' || REPLACE(REPLACE(tel,'-',''),' ','')
+                           )
                         LIMIT 1
                     """.trimIndent()
                     Pair(q, arrayOf(cleaned, cleaned, cleaned))
@@ -132,7 +136,11 @@ class CallOverlayService : Service() {
                     val q = """
                         SELECT name, department, title, location FROM staff
                         WHERE REPLACE(REPLACE(tel,'-',''),' ','') = ?
-                           OR ? LIKE '%' || REPLACE(REPLACE(tel,'-',''),' ','')
+                           OR (
+                               LENGTH(REPLACE(REPLACE(tel,'-',''),' ','')) >= 4
+                               AND REPLACE(REPLACE(tel,'-',''),' ','') NOT IN ('','0000')
+                               AND ? LIKE '%' || REPLACE(REPLACE(tel,'-',''),' ','')
+                           )
                         LIMIT 1
                     """.trimIndent()
                     Pair(q, arrayOf(cleaned, cleaned))
