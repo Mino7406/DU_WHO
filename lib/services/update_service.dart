@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-const _kCurrentVersion = '1.0.0';
+const _kCurrentVersion = '1.1.0';
 const _kRepo           = 'Mino7406/DU_WHO';
 
 class UpdateInfo {
