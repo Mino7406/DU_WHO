@@ -41,6 +41,7 @@ dependencies:
   google_generative_ai: ^0.4.7
   http: ^1.6.0
   permission_handler: ^11.3.1
+  scrollable_positioned_list: ^0.3.8
 
 dev_dependencies:
   flutter_test:

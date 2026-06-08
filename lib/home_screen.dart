@@ -10,6 +10,7 @@ import 'chat_screen.dart';
 import 'db/database_helper.dart';
 import 'main.dart';
 import 'search_screen.dart';
+import 'services/update_service.dart';
 import 'settings_screen.dart';
 import 'staff_model.dart';
 import 'state/favorites.dart';
@@ -32,6 +33,89 @@ class _HomeScreenState extends State<HomeScreen> {
     if (Platform.isAndroid) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _requestCallPermissions());
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+  }
+
+  Future<void> _checkForUpdate() async {
+    if (!Platform.isAndroid) return;
+    final info = await UpdateService.checkForUpdate();
+    if (!mounted || info == null) return;
+    _showUpdateDialog(info);
+  }
+
+  void _showUpdateDialog(UpdateInfo info) {
+    final cs = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: cs.surfaceContainerLowest,
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.system_update_rounded,
+                  color: kPrimary, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text('업데이트 알림',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '새 버전 v${info.latestVersion}이 출시되었습니다.',
+              style: TextStyle(fontSize: 14, color: cs.onSurface),
+            ),
+            if (info.releaseNotes != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: cs.outlineVariant),
+                ),
+                child: Text(
+                  info.releaseNotes!,
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('나중에',
+                style: TextStyle(color: cs.onSurfaceVariant)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kPrimary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final url = Uri.parse(info.apkUrl ?? info.releaseUrl);
+              if (await canLaunchUrl(url)) await launchUrl(url);
+            },
+            child: const Text('지금 업데이트'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _requestCallPermissions() async {
@@ -341,8 +425,44 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: Icon(Icons.logout_rounded, color: cs.onSurfaceVariant),
             tooltip: '로그아웃',
-            onPressed: () {
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) {
+                  final cs = Theme.of(ctx).colorScheme;
+                  return AlertDialog(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
+                    backgroundColor: cs.surfaceContainerLowest,
+                    title: const Text('로그아웃',
+                        style: TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.w700)),
+                    content: const Text('정말 로그아웃 하시겠습니까?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text('취소',
+                            style: TextStyle(color: cs.onSurfaceVariant)),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFDC2626),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('로그아웃'),
+                      ),
+                    ],
+                  );
+                },
+              );
+              if (confirmed != true) return;
+              await AuthService.instance.clearSession();
               AuthService.instance.logout();
+              if (!context.mounted) return;
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const LoginScreen()),

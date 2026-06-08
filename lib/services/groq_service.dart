@@ -5,9 +5,9 @@ import 'package:http/http.dart' as http;
 import '../config.dart';
 import '../db/database_helper.dart';
 
-class GeminiService {
-  static final GeminiService instance = GeminiService._();
-  GeminiService._();
+class GroqService {
+  static final GroqService instance = GroqService._();
+  GroqService._();
 
   static const _endpoint = 'https://api.groq.com/openai/v1/chat/completions';
   static const _model = 'llama-3.3-70b-versatile';
@@ -57,10 +57,15 @@ class GeminiService {
       throw Exception('HTTP ${response.statusCode}: ${response.body}');
     }
 
-    final decoded = jsonDecode(response.body);
-    final reply = decoded['choices'][0]['message']['content'] as String;
-    _history.add({'role': 'assistant', 'content': reply});
-    return reply;
+    try {
+      final decoded = jsonDecode(response.body);
+      final reply = decoded['choices'][0]['message']['content'] as String;
+      _history.add({'role': 'assistant', 'content': reply});
+      return reply;
+    } catch (_) {
+      _history.removeLast();
+      throw Exception('응답을 처리할 수 없습니다. 다시 시도해주세요.');
+    }
   }
 
   void resetChat() => _history.clear();

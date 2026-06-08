@@ -20,8 +20,12 @@ Future<void> main() async {
   await DatabaseHelper.instance.database;
   await loadFavoritesFromDb();
   await _loadThemeMode();
+  final autoLoggedIn = await AuthService.instance.restoreSession();
   await _saveDbPathToNative();
-  runApp(const DuWhoApp());
+  if (autoLoggedIn) {
+    await _saveUserRoleToNative(AuthService.instance.isStaff);
+  }
+  runApp(DuWhoApp(autoLoggedIn: autoLoggedIn));
 }
 
 Future<void> _loadThemeMode() async {
@@ -199,7 +203,8 @@ ThemeData _buildDarkTheme() {
 }
 
 class DuWhoApp extends StatelessWidget {
-  const DuWhoApp({super.key});
+  final bool autoLoggedIn;
+  const DuWhoApp({super.key, this.autoLoggedIn = false});
 
   @override
   Widget build(BuildContext context) {
@@ -212,7 +217,7 @@ class DuWhoApp extends StatelessWidget {
           theme: _buildLightTheme(),
           darkTheme: _buildDarkTheme(),
           themeMode: mode,
-          home: const LoginScreen(),
+          home: autoLoggedIn ? const HomeScreen() : const LoginScreen(),
         );
       },
     );
@@ -231,6 +236,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _pwController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _rememberMe = false;
   String? _errorMessage;
 
   @override
@@ -259,6 +265,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
+      if (_rememberMe) await AuthService.instance.saveSession(id);
       await _saveUserRoleToNative(AuthService.instance.isStaff);
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -377,7 +384,40 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
+                // 로그인 상태 유지 체크박스
+                InkWell(
+                  onTap: () => setState(() => _rememberMe = !_rememberMe),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: Checkbox(
+                            value: _rememberMe,
+                            onChanged: (v) =>
+                                setState(() => _rememberMe = v ?? false),
+                            activeColor: kPrimary,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4)),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          '로그인 상태 유지',
+                          style: TextStyle(
+                              fontSize: 14, color: cs.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 // 로그인 버튼
                 SizedBox(
                   width: double.infinity,

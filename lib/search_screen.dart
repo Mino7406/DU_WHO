@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'auth.dart';
 import 'db/database_helper.dart';
@@ -27,6 +28,9 @@ String _getInitialConsonant(String name) {
 
 String _normalizeConsonant(String c) => _normalizeMap[c] ?? c;
 
+// 평탄화된 리스트 아이템: consonant != null → 섹션 헤더, staff != null → 카드
+typedef _ListItem = ({String? consonant, Staff? staff});
+
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
@@ -40,60 +44,61 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _isLoading = true;
   int _searchMode = 0;
   final TextEditingController _searchController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+  final ScrollController _searchScrollController = ScrollController();
 
-  // 초성 인덱스용 상태 – GlobalKey 기반(정확한 스크롤)
-  Map<String, List<Staff>> _groupedStaff       = {};
-  List<String>             _availableConsonants = [];
-  Map<String, GlobalKey>   _sectionKeys        = {};
-  String?                  _activeConsonant;
+  // 초성 인덱스용 상태
+  List<String>    _availableConsonants = [];
+  List<_ListItem> _flatItems           = [];
 
-  // 초성별 사전 계산된 스크롤 오프셋 (최초 1회 측정 후 저장)
-  Map<String, double> _sectionOffsets = {};
-  // 초기 측정 때만 크게(전 항목 레이아웃), 이후 정상값으로 줄여 리빌드 비용 최소화
-  double _cacheExtent = 9999999;
+  // 초성별 flat 아이템 인덱스 (높이 추정 불필요 – 인덱스 기반 점프)
+  Map<String, int> _sectionItemIndexes = {};
 
-  // 리스트 영역의 화면 상단 Y값을 구하기 위한 키
-  final GlobalKey _listKey = GlobalKey();
+  // scrollable_positioned_list 컨트롤러
+  final ItemScrollController    _itemScrollController    = ItemScrollController();
+  final ItemPositionsListener   _itemPositionsListener   = ItemPositionsListener.create();
+
+  // ValueNotifier로 setState 없이 인덱스바만 갱신
+  final ValueNotifier<String?> _activeConsonant = ValueNotifier(null);
 
   bool get _isSearching => _searchController.text.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    _itemPositionsListener.itemPositions.addListener(_onItemPositionsChanged);
     _loadAllStaff();
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
+    _itemPositionsListener.itemPositions.removeListener(_onItemPositionsChanged);
     _searchController.dispose();
-    _scrollController.dispose();
+    _searchScrollController.dispose();
+    _activeConsonant.dispose();
     super.dispose();
   }
 
-  // 스크롤 위치에 따라 현재 섹션 초성을 자동 갱신
-  // _sectionOffsets 사용 → RenderBox 조회 없이 순수 산술 비교
-  void _onScroll() {
-    if (_isSearching || _sectionOffsets.isEmpty) return;
+  // 현재 보이는 아이템 목록으로 활성 초성 갱신
+  void _onItemPositionsChanged() {
+    if (_isSearching || _sectionItemIndexes.isEmpty) return;
 
-    final pos = _scrollController.offset;
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return;
+
+    // 뷰포트 상단에 가장 가까운 아이템 인덱스
+    final topIndex = positions
+        .reduce((a, b) => a.itemLeadingEdge < b.itemLeadingEdge ? a : b)
+        .index;
+
+    // topIndex 이하인 섹션 헤더 중 가장 큰 인덱스의 초성 = 현재 섹션
     String? best;
-    double bestOffset = double.negativeInfinity;
-
-    for (final consonant in _availableConsonants) {
-      final offset = _sectionOffsets[consonant];
-      if (offset == null) continue;
-      // 현재 스크롤 위치를 막 지난 섹션 중 가장 마지막 것
-      if (offset <= pos + 8 && offset > bestOffset) {
-        bestOffset = offset;
-        best = consonant;
-      }
+    for (final c in _availableConsonants) {
+      final idx = _sectionItemIndexes[c];
+      if (idx != null && idx <= topIndex) best = c;
     }
 
-    if (best != null && best != _activeConsonant) {
-      setState(() => _activeConsonant = best);
+    if (best != null && best != _activeConsonant.value) {
+      _activeConsonant.value = best;
     }
   }
 
@@ -104,54 +109,34 @@ class _SearchScreenState extends State<SearchScreen> {
 
     final grouped    = <String, List<Staff>>{};
     final consonants = <String>[];
-    final keys       = <String, GlobalKey>{};
 
     for (final s in staff) {
       final c = _normalizeConsonant(_getInitialConsonant(s.name));
       if (!grouped.containsKey(c)) {
         grouped[c] = [];
         consonants.add(c);
-        keys[c] = GlobalKey();
       }
       grouped[c]!.add(s);
     }
 
-    setState(() {
-      _allStaff            = staff;
-      _foundStaff          = staff;
-      _groupedStaff        = grouped;
-      _availableConsonants = consonants;
-      _sectionKeys         = keys;
-      _isLoading           = false;
-    });
-
-    // 첫 프레임 렌더 후 모든 섹션 오프셋 1회 측정·저장
-    WidgetsBinding.instance.addPostFrameCallback((_) => _measureOffsets());
-  }
-
-  // cacheExtent: 99999 상태에서 전체 항목이 레이아웃된 직후 실행
-  // → 모든 섹션 헤더의 절대 스크롤 오프셋을 정확하게 계산
-  void _measureOffsets() {
-    if (!mounted) return;
-    final listBox = _listKey.currentContext?.findRenderObject() as RenderBox?;
-    if (listBox == null) return;
-    final listTopY = listBox.localToGlobal(Offset.zero).dy;
-
-    final offsets = <String, double>{};
-    for (final consonant in _availableConsonants) {
-      final box = _sectionKeys[consonant]?.currentContext
-          ?.findRenderObject() as RenderBox?;
-      if (box == null || !box.attached) continue;
-      // scroll offset = 0 기준의 절대 콘텐츠 좌표
-      final contentY = _scrollController.offset +
-          box.localToGlobal(Offset.zero).dy - listTopY;
-      offsets[consonant] = contentY.clamp(0.0, double.maxFinite);
+    // 평탄 리스트 + 섹션 헤더의 flat 인덱스 기록
+    final flat    = <_ListItem>[];
+    final indexes = <String, int>{};
+    for (final c in consonants) {
+      indexes[c] = flat.length;
+      flat.add((consonant: c, staff: null));
+      for (final s in grouped[c]!) {
+        flat.add((consonant: null, staff: s));
+      }
     }
 
-    // 측정 완료 → cacheExtent 정상화로 이후 리빌드 비용 최소화
     setState(() {
-      _sectionOffsets = offsets;
-      _cacheExtent    = 250;
+      _allStaff             = staff;
+      _foundStaff           = staff;
+      _availableConsonants  = consonants;
+      _flatItems            = flat;
+      _sectionItemIndexes   = indexes;
+      _isLoading            = false;
     });
   }
 
@@ -160,26 +145,21 @@ class _SearchScreenState extends State<SearchScreen> {
         ? _allStaff
         : await DatabaseHelper.instance.searchStaff(keyword, _searchMode);
     if (!mounted) return;
-    setState(() {
-      _foundStaff      = results;
-      _activeConsonant = null;
-    });
-    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    setState(() => _foundStaff = results);
+    _activeConsonant.value = null;
+    if (_searchScrollController.hasClients) _searchScrollController.jumpTo(0);
+    if (!_isSearching && _itemScrollController.isAttached) {
+      _itemScrollController.jumpTo(index: 0);
+    }
   }
 
   void _scrollToConsonant(String consonant) {
-    final target = _sectionOffsets[consonant];
-    if (target == null || !_scrollController.hasClients) return;
+    final index = _sectionItemIndexes[consonant];
+    if (index == null || !_itemScrollController.isAttached) return;
 
     HapticFeedback.selectionClick();
-    setState(() => _activeConsonant = consonant);
-
-    // 사전 계산된 오프셋을 바로 사용 → 지연 없음
-    _scrollController.animateTo(
-      target.clamp(0.0, _scrollController.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    _activeConsonant.value = consonant;
+    _itemScrollController.jumpTo(index: index);
   }
 
   // ─── 전화/메일 ────────────────────────────────────────────────
@@ -511,53 +491,47 @@ class _SearchScreenState extends State<SearchScreen> {
     if (_isSearching) {
       if (_foundStaff.isEmpty) return _emptyState(cs);
       return ListView.separated(
-        controller: _scrollController,
+        controller: _searchScrollController,
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         itemCount: _foundStaff.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        separatorBuilder: (context, _) => const SizedBox(height: 8),
         itemBuilder: (ctx, i) => _staffCard(ctx, _foundStaff[i]),
       );
     }
 
-    if (_groupedStaff.isEmpty) return _emptyState(cs);
+    if (_flatItems.isEmpty) return _emptyState(cs);
 
-    // 전체 목록: GlobalKey 기반 섹션 헤더 + 우측 초성 인덱스
-    // ListView(non-builder) → 위젯 재활용 없음 → GlobalKey 항상 유효
-    final children = <Widget>[];
-    for (final consonant in _availableConsonants) {
-      children.add(
-        Container(
-          key: _sectionKeys[consonant],
-          child: _buildSectionHeader(context, consonant),
-        ),
-      );
-      for (final staff in _groupedStaff[consonant]!) {
-        children.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _staffCard(context, staff),
-          ),
-        );
-      }
-    }
-
+    // ScrollablePositionedList → 인덱스 기반 점프 (높이 추정 불필요)
+    // ValueListenableBuilder → 스크롤 시 인덱스바만 갱신 (전체 리빌드 없음)
     return Stack(
-      key: _listKey,
       children: [
-        ListView(
-          controller: _scrollController,
-          cacheExtent: _cacheExtent,
+        ScrollablePositionedList.builder(
+          itemScrollController: _itemScrollController,
+          itemPositionsListener: _itemPositionsListener,
           padding: const EdgeInsets.fromLTRB(16, 0, 32, 24),
-          children: children,
+          itemCount: _flatItems.length,
+          itemBuilder: (ctx, i) {
+            final item = _flatItems[i];
+            if (item.consonant != null) {
+              return _buildSectionHeader(ctx, item.consonant!);
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _staffCard(ctx, item.staff!),
+            );
+          },
         ),
         Positioned(
           right: 0,
           top: 0,
           bottom: 0,
-          child: _ConsonantIndexBar(
-            consonants: _availableConsonants,
-            active: _activeConsonant,
-            onSelect: _scrollToConsonant,
+          child: ValueListenableBuilder<String?>(
+            valueListenable: _activeConsonant,
+            builder: (context, active, _) => _ConsonantIndexBar(
+              consonants: _availableConsonants,
+              active: active,
+              onSelect: _scrollToConsonant,
+            ),
           ),
         ),
       ],

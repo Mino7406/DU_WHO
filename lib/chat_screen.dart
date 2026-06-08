@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'main.dart';
-import 'services/gemini_service.dart';
+import 'services/groq_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -57,7 +57,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
 
     try {
-      final reply = await GeminiService.instance.sendMessage(text);
+      final reply = await GroqService.instance.sendMessage(text);
       if (!mounted) return;
       _addBotMessage(reply);
     } catch (e) {
@@ -69,7 +69,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _resetChat() {
-    GeminiService.instance.resetChat();
+    GroqService.instance.resetChat();
     setState(() => _messages.clear());
     _addBotMessage('대화가 초기화되었습니다. 무엇이 궁금하신가요?');
   }
@@ -186,7 +186,6 @@ class _ChatScreenState extends State<ChatScreen> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                color: _isLoading ? null : null,
                 shape: BoxShape.circle,
               ),
               child: _isLoading
