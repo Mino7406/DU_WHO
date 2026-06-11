@@ -50,7 +50,7 @@ Future<void> saveThemeMode(ThemeMode mode) async {
 }
 
 Future<void> _saveDbPathToNative() async {
-  if (!Platform.isAndroid) return;
+  if (!Platform.isAndroid && !Platform.isIOS) return;
   final dir = await getApplicationDocumentsDirectory();
   final dbPath = p.join(dir.path, 'du_who.db');
   const channel = MethodChannel('du_who/call_overlay');
@@ -60,7 +60,7 @@ Future<void> _saveDbPathToNative() async {
 }
 
 Future<void> _saveUserRoleToNative(bool isStaff) async {
-  if (!Platform.isAndroid) return;
+  if (!Platform.isAndroid && !Platform.isIOS) return;
   const channel = MethodChannel('du_who/call_overlay');
   try {
     await channel.invokeMethod('saveUserRole', {'isStaff': isStaff});
