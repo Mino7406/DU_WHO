@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'auth.dart';
 import 'home_screen.dart';
 import 'main.dart';
+import 'theme/app_theme.dart';
 
 // 로그인 화면. 지금은 kLoginEnabled = false 라 어디서도 띄우지 않는다.
 // 실제 인증을 붙일 때 다시 연결하기 위해 코드만 보존한다.
@@ -215,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [kPrimary, Color(0xFF2E9E5E)],
+                        colors: [kPrimary, AppColors.green],
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                       ),

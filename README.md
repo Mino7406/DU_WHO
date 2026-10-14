@@ -54,10 +54,11 @@ DU-WHO는 대구대학교 교직원 DB를 기반으로 다음 문제를 해결�
 | 위치 | 건물명만 | 전체 표시 |
 
 ### AI 교직원 안내
-- Groq API (Llama 3.3 70B) 기반 자연어 챗봇
-- 질의 키워드로 교직원 DB를 사전 검색한 후 컨텍스트로 주입하여 정확도 향상
-- 대화 히스토리 유지 (초기화 버튼 제공)
-- 타임아웃·네트워크 오류 메시지 처리
+- Cloudflare Workers AI (Llama 3.3 70B) 기반 자연어 챗봇 — 서버 코드는 `worker/`, 앱에 API 키 없음
+- 질문에서 조사·불용어를 뗀 키워드로 교직원 DB를 검색하고, 관련도 순 상위 15명을 근거 자료로 전달
+- 신분에 따라 보내는 정보를 거름 (학생: 직위 제외·위치 건물명만), 휴대전화는 서버로 보내지 않음
+- 최근 대화 6개만 유지, 화면을 열 때·로그아웃 시 초기화
+- 서버 오류·한도 초과·타임아웃 시 로컬 DB 검색 결과로 대신 안내
 
 ### 전화 수신 식별 (Android 전용)
 - 전화 수신 시 교내 번호 여부를 DB에서 조회
@@ -81,7 +82,7 @@ DU-WHO는 대구대학교 교직원 DB를 기반으로 다음 문제를 해결�
 | 프레임워크 | Flutter (Dart SDK `^3.11.5`) |
 | 로컬 DB | SQLite |
 | 상태 관리 | StatefulWidget + ValueNotifier (별도 라이브러리 없음) |
-| AI API | Groq API — `llama-3.3-70b-versatile` |
+| AI 서버 | Cloudflare Workers AI — `@cf/meta/llama-3.3-70b-instruct-fp8-fast` |
 | HTTP | http `^1.6.0` |
 | URL 실행 | url_launcher `^6.3.2` |
 | 권한 | permission_handler `^11.3.1` |
@@ -95,7 +96,8 @@ DU-WHO는 대구대학교 교직원 DB를 기반으로 다음 문제를 해결�
 
 ```
 lib/
-├── main.dart                  # 앱 진입점, 테마, 로그인 화면
+├── main.dart                  # 앱 진입점, 테마
+├── login_screen.dart          # 로그인 화면 (kLoginEnabled=false 동안 미사용, 코드 보존)
 ├── auth.dart                  # 인증 서비스 (로그인·로그아웃·세션 영속화)
 ├── home_screen.dart           # 홈 화면 (서비스 카드, 즐겨찾기, 업데이트 감지)
 ├── search_screen.dart         # 교직원 검색 (초성 인덱스, 가상화 리스트)
@@ -103,14 +105,17 @@ lib/
 ├── settings_screen.dart       # 설정 (테마, 버전, 업데이트 확인)
 ├── call_screen.dart           # 전화 수신 오버레이 UI
 ├── staff_model.dart           # Staff 데이터 모델 (fromJson / fromMap / toMap)
-├── config.dart                # API 키 설정
 ├── db/
 │   └── database_helper.dart   # SQLite 초기화, 시드, 검색 쿼리
 ├── state/
 │   └── favorites.dart         # 즐겨찾기 전역 상태
 └── services/
     ├── update_service.dart    # GitHub Releases API 버전 비교
-    └── groq_service.dart      # Groq API 챗봇 서비스
+    └── ai_chat_service.dart   # 챗봇: 키워드 검색 + Workers AI 서버 호출
+worker/                        # AI 챗봇 서버 (Cloudflare Workers AI)
+├── src/index.js               # /chat, /health 진입점, 횟수 제한
+├── src/chat.js                # 요청 검증, 프롬프트 구성 (순수 로직)
+└── test/worker.test.js        # node --test
 ```
 
 ---
@@ -123,9 +128,20 @@ lib/
 ※ 갤럭시 One UI 기준으로 테스트됨.
 
 ### 직접 빌드
-교직원 데이터와 API 키는 개인정보·비밀 정보라 저장소에 올리지 않는다.
+교직원 데이터는 개인정보라 저장소에 올리지 않는다.
 1. `assets/staff_db.json`을 직접 넣는다 (학교 포털 `memberSearchList` 형식)
-2. 키를 넘겨서 빌드한다: `flutter run --dart-define=GROQ_API_KEY=<키>`
+2. `flutter run`
+
+### AI 서버 (`worker/`)
+앱이 호출하는 챗봇 서버다. API 키 없이 Cloudflare Workers AI 바인딩을 쓴다. 직접 배포하려면:
+
+```bash
+cd worker
+npm install
+npx wrangler deploy
+```
+
+배포하고 나온 주소를 `lib/services/ai_chat_service.dart`의 `defaultEndpoint`에 넣는다. 테스트는 `npm test`.
 
 ---
 

@@ -13,7 +13,13 @@ class NotificationManager {
 
     /// 발신자 교직원 정보 알림 표시.
     /// 본문 구성은 Android와 동일: 부서 · 직위(교직원만) · 위치(학생은 건물명만)
-    static func showCallerNotification(staffInfo: StaffInfo, rawNumber: String, isStaffUser: Bool) {
+    /// preview: 앱의 "알림 미리보기" — 제목에 [미리보기]를 붙인다
+    static func showCallerNotification(
+        staffInfo: StaffInfo,
+        rawNumber: String,
+        isStaffUser: Bool,
+        preview: Bool = false
+    ) {
         var parts: [String] = []
         let isShared = staffInfo.sharedCount > 1
         if isShared {
@@ -37,11 +43,12 @@ class NotificationManager {
         if body.isEmpty { body = rawNumber }
 
         let content = UNMutableNotificationContent()
+        let prefix = preview ? "[미리보기] " : ""
         if isShared {
             let label = staffInfo.department.isEmpty ? staffInfo.name : staffInfo.department
-            content.title = "📞 \(label) (\(staffInfo.sharedCount)명 공용)"
+            content.title = prefix + "📞 \(label) (\(staffInfo.sharedCount)명 공용)"
         } else {
-            content.title = "📞 \(staffInfo.name)"
+            content.title = prefix + "📞 \(staffInfo.name)"
         }
         content.body = body
         content.sound = .default

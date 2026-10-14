@@ -55,16 +55,16 @@ class Staff {
 
   // id 는 AUTOINCREMENT 라 INSERT 시 포함하지 않음
   Map<String, Object?> toMap() => {
-        'user_id': userId,
-        'name': name,
-        'department': department,
-        'title': title,
-        'tel': tel,
-        'cell_tel': cellTel,
-        'location': location,
-        'email': email,
-        'charge_business': chargeBusiness,
-      };
+    'user_id': userId,
+    'name': name,
+    'department': department,
+    'title': title,
+    'tel': tel,
+    'cell_tel': cellTel,
+    'location': location,
+    'email': email,
+    'charge_business': chargeBusiness,
+  };
 
   bool matchesQuery(String query) {
     final q = query.toLowerCase();

@@ -27,6 +27,8 @@ class CallOverlayService : Service() {
         }
 
         val rawNumber = intent.getStringExtra("phone_number") ?: ""
+        // 앱의 "알림 미리보기"에서 보낸 요청이면 실제 교직원 대신 예시 정보와 가상번호로 보여준다
+        val preview = intent.getBooleanExtra("preview", false)
 
         // 포그라운드 서비스 즉시 시작 (ANR 방지)
         startForegroundCompat()
@@ -35,9 +37,9 @@ class CallOverlayService : Service() {
         Thread {
             val isStaff = getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE)
                 .getBoolean(MainActivity.KEY_IS_STAFF, false)
-            val staff = queryStaff(rawNumber, isStaff)
+            val staff = if (preview) PREVIEW_SAMPLE else queryStaff(rawNumber, isStaff)
             handler.post {
-                showCallerNotification(rawNumber, staff, isStaff)
+                showCallerNotification(rawNumber, staff, isStaff, preview)
                 stopForegroundCompat()
                 stopSelf()
             }
@@ -50,14 +52,20 @@ class CallOverlayService : Service() {
 
     // ─── 발신자 알림 ──────────────────────────────────────────
 
-    private fun showCallerNotification(number: String, staff: StaffInfo?, isStaff: Boolean) {
+    private fun showCallerNotification(
+        number: String,
+        staff: StaffInfo?,
+        isStaff: Boolean,
+        preview: Boolean = false,
+    ) {
         // DB에 등록된 교직원 번호일 때만 알림 표시
         if (staff == null) return
 
         val nm = getSystemService(NotificationManager::class.java) ?: return
 
         // 여러 명이 같이 쓰는 번호면 사람 대신 부서 단위로 보여준다
-        val title = if (staff.sharedCount > 1) {
+        val prefix = if (preview) "[미리보기] " else ""
+        val title = prefix + if (staff.sharedCount > 1) {
             "📞 ${staff.department.ifEmpty { staff.name }} (${staff.sharedCount}명 공용)"
         } else {
             "📞 ${staff.name}"
@@ -232,6 +240,14 @@ class CallOverlayService : Service() {
     }
 
     companion object {
+        /** 미리보기 알림에 쓰는 예시 교직원(실제 사람이 아님) */
+        private val PREVIEW_SAMPLE = StaffInfo(
+            name = "홍길동 (예시)",
+            department = "학생지원팀",
+            title = "팀장",
+            location = "본관 101호",
+        )
+
         /**
          * 발신 번호 → 교직원 매칭. ?1 = 숫자만 남긴 수신 번호, ?2 = 교직원 계정이면 1.
          * 전체 번호가 정확히 같을 때만 매칭한다. 끝자리만 비교하면 4자리 내선번호(105건) 때문에

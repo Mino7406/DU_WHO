@@ -11,6 +11,12 @@ class CallKitHandler: NSObject, CXCallObserverDelegate {
 
     static let userDefaultsDbPathKey = "db_path"
     static let userDefaultsIsStaffKey = "is_staff"
+    static let userDefaultsEnabledKey = "caller_id_enabled"
+
+    /// 앱의 "걸려온 학교 번호 알림" 스위치(기본 켜짐)
+    static var isEnabled: Bool {
+        UserDefaults.standard.object(forKey: userDefaultsEnabledKey) as? Bool ?? true
+    }
 
     private var callObserver: CXCallObserver?
     private var handledCallUUIDs = Set<UUID>()
@@ -46,6 +52,7 @@ class CallKitHandler: NSObject, CXCallObserverDelegate {
     /// 여기서는 DB 경로/사용자 역할 설정 여부만 확인하고
     /// "교내 전화 확인" 안내 알림을 표시한다.
     private func handleIncomingCall() {
+        guard Self.isEnabled else { return }
         let defaults = UserDefaults.standard
         guard defaults.string(forKey: Self.userDefaultsDbPathKey) != nil else {
             NSLog("[DU-WHO] db_path not set; skip notification")

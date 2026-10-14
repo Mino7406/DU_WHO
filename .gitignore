@@ -118,7 +118,6 @@ app.*.symbols
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
 # ─── DU-WHO: 비밀 정보 / 개인정보 (저장소에 올리지 않는다) ───
-# lib/config.dart 는 키 없이 커밋한다(키는 --dart-define 으로 주입)
 # 서명 키
 key.properties
 *.keystore
@@ -140,5 +139,3 @@ worker/.dev.vars
 *.iml
 .vscode/
 
-# 로컬 작업 메모(저장소에는 올리지 않는다)
-plan.md

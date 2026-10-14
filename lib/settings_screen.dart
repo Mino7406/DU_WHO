@@ -35,7 +35,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         SnackBar(
           content: const Text('최신 버전을 사용 중입니다.'),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -58,12 +60,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color: cs.primaryContainer,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.system_update_rounded,
-                  color: kPrimary, size: 20),
+              child: const Icon(
+                Icons.system_update_rounded,
+                color: kPrimary,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
-            const Text('업데이트 알림',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            const Text(
+              '업데이트 알림',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
           ],
         ),
         content: Column(
@@ -94,15 +101,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('나중에',
-                style: TextStyle(color: cs.onSurfaceVariant)),
+            child: Text('나중에', style: TextStyle(color: cs.onSurfaceVariant)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: kPrimary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () async {
               Navigator.pop(ctx);
@@ -142,7 +149,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: '기기 설정에 따라 자동 전환',
                   mode: ThemeMode.system,
                 ),
-                Divider(height: 1, indent: 56, endIndent: 16, color: cs.outlineVariant),
+                Divider(
+                  height: 1,
+                  indent: 56,
+                  endIndent: 16,
+                  color: cs.outlineVariant,
+                ),
                 _themeOption(
                   context,
                   icon: Icons.light_mode_rounded,
@@ -150,7 +162,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: '항상 밝은 테마 사용',
                   mode: ThemeMode.light,
                 ),
-                Divider(height: 1, indent: 56, endIndent: 16, color: cs.outlineVariant),
+                Divider(
+                  height: 1,
+                  indent: 56,
+                  endIndent: 16,
+                  color: cs.outlineVariant,
+                ),
                 _themeOption(
                   context,
                   icon: Icons.dark_mode_rounded,
@@ -173,9 +190,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               children: [
                 _infoRow(context, '앱 이름', 'DU-WHO'),
-                Divider(height: 1, indent: 56, endIndent: 16, color: cs.outlineVariant),
+                Divider(
+                  height: 1,
+                  indent: 56,
+                  endIndent: 16,
+                  color: cs.outlineVariant,
+                ),
                 _versionRow(context),
-                Divider(height: 1, indent: 56, endIndent: 16, color: cs.outlineVariant),
+                Divider(
+                  height: 1,
+                  indent: 56,
+                  endIndent: 16,
+                  color: cs.outlineVariant,
+                ),
                 _infoRow(context, '제공', '대구대학교'),
               ],
             ),
@@ -295,7 +322,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: kPrimary),
+                        strokeWidth: 2,
+                        color: kPrimary,
+                      ),
                     )
                   : Text(
                       '업데이트 확인',
@@ -330,10 +359,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(fontSize: 14, color: cs.onSurface),
-          ),
+          Text(value, style: TextStyle(fontSize: 14, color: cs.onSurface)),
         ],
       ),
     );

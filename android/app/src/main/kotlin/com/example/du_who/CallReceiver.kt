@@ -12,6 +12,8 @@ class CallReceiver : BroadcastReceiver() {
         if (intent.action != TelephonyManager.ACTION_PHONE_STATE_CHANGED) return
 
         val state = intent.getStringExtra(TelephonyManager.EXTRA_STATE) ?: return
+        // 앱의 "걸려온 학교 번호 알림" 스위치가 꺼져 있으면 아무것도 하지 않는다
+        if (!MainActivity.isCallerIdEnabled(context)) return
         val svcIntent = Intent(context, CallOverlayService::class.java)
 
         when (state) {
