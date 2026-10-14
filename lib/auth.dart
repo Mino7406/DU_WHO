@@ -5,11 +5,19 @@ import 'package:path_provider/path_provider.dart';
 
 enum UserRole { student, staff }
 
+// 로그인 화면 사용 여부. 실제 인증을 붙이기 전까지 꺼 둔다(login_screen.dart 는 보존).
+// false 인 동안은 모든 사용자가 교직원 권한으로 동작한다.
+const bool kLoginEnabled = false;
+
 class AuthService {
   static final AuthService instance = AuthService._();
   AuthService._();
 
-  UserRole _role = UserRole.student;
+  static const UserRole _defaultRole = kLoginEnabled
+      ? UserRole.student
+      : UserRole.staff;
+
+  UserRole _role = _defaultRole;
 
   UserRole get role => _role;
   bool get isStaff => _role == UserRole.staff;
@@ -30,7 +38,7 @@ class AuthService {
   }
 
   void logout() {
-    _role = UserRole.student;
+    _role = _defaultRole;
   }
 
   // ─── 자동 로그인 세션 ─────────────────────────────────────────
@@ -40,7 +48,8 @@ class AuthService {
     try {
       final file = await _sessionFile();
       if (!await file.exists()) return false;
-      final data = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      final data =
+          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
       _role = (data['role'] as String?) == 'staff'
           ? UserRole.staff
           : UserRole.student;
@@ -54,10 +63,9 @@ class AuthService {
   Future<void> saveSession(String id) async {
     try {
       final file = await _sessionFile();
-      await file.writeAsString(jsonEncode({
-        'id': id,
-        'role': isStaff ? 'staff' : 'student',
-      }));
+      await file.writeAsString(
+        jsonEncode({'id': id, 'role': isStaff ? 'staff' : 'student'}),
+      );
     } catch (_) {}
   }
 

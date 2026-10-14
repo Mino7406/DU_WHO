@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'auth.dart';
 import 'chat_screen.dart';
 import 'db/database_helper.dart';
+import 'login_screen.dart';
 import 'main.dart';
 import 'search_screen.dart';
 import 'services/update_service.dart';
@@ -30,8 +31,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadFavorites();
-    if (Platform.isAndroid || Platform.isIOS) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _requestCallPermissions());
+    if (Platform.isAndroid) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _requestCallPermissions(),
+      );
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
   }
@@ -60,12 +63,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: cs.primaryContainer,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.system_update_rounded,
-                  color: kPrimary, size: 20),
+              child: const Icon(
+                Icons.system_update_rounded,
+                color: kPrimary,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
-            const Text('업데이트 알림',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            const Text(
+              '업데이트 알림',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
           ],
         ),
         content: Column(
@@ -96,15 +104,15 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('나중에',
-                style: TextStyle(color: cs.onSurfaceVariant)),
+            child: Text('나중에', style: TextStyle(color: cs.onSurfaceVariant)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: kPrimary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () async {
               Navigator.pop(ctx);
@@ -121,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _requestCallPermissions() async {
     const ch = MethodChannel('du_who/call_overlay');
 
-    // 공통: Notification 권한 (iOS는 CallKit 감지에 별도 권한 불필요)
+    // 알림 권한 (발신자 안내 알림 표시용)
     final notifStatus = await Permission.notification.status;
     if (notifStatus.isDenied) await Permission.notification.request();
 
@@ -130,7 +138,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final phoneStatus = await Permission.phone.status;
     if (phoneStatus.isDenied) await Permission.phone.request();
 
-    final hasCallLog = await ch.invokeMethod<bool>('checkCallLogPermission') ?? true;
+    final hasCallLog =
+        await ch.invokeMethod<bool>('checkCallLogPermission') ?? true;
     if (!hasCallLog) {
       await ch.invokeMethod('requestCallLogPermission');
       await Future.delayed(const Duration(milliseconds: 1500));
@@ -187,10 +196,16 @@ class _HomeScreenState extends State<HomeScreen> {
           return Container(
             decoration: BoxDecoration(
               color: cs.surfaceContainerLowest,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             padding: EdgeInsets.fromLTRB(
-                24, 20, 24, MediaQuery.of(ctx).viewInsets.bottom + 40),
+              24,
+              20,
+              24,
+              MediaQuery.of(ctx).viewInsets.bottom + 40,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,8 +234,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(Icons.person_rounded,
-                          color: Colors.white, size: 30),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        color: Colors.white,
+                        size: 30,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -230,18 +248,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           Text(
                             staff.name,
                             style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: cs.onSurface),
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: cs.onSurface,
+                            ),
                           ),
                           // 직위: 교직원만 표시
                           if (auth.isStaff && staff.title.isNotEmpty)
                             Text(
                               staff.title,
                               style: const TextStyle(
-                                  fontSize: 14,
-                                  color: kPrimary,
-                                  fontWeight: FontWeight.w500),
+                                fontSize: 14,
+                                color: kPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                         ],
                       ),
@@ -281,7 +301,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     staff.cellTel.isNotEmpty &&
                     staff.cellTel != '000-0000-0000') ...[
                   const SizedBox(height: 12),
-                  _detailRow(ctx, Icons.smartphone_rounded, '휴대폰', staff.cellTel),
+                  _detailRow(
+                    ctx,
+                    Icons.smartphone_rounded,
+                    '휴대폰',
+                    staff.cellTel,
+                  ),
                 ],
                 if (staff.email.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -290,7 +315,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (staff.chargeBusiness.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   _detailRow(
-                      ctx, Icons.work_rounded, '담당업무', staff.chargeBusiness),
+                    ctx,
+                    Icons.work_rounded,
+                    '담당업무',
+                    staff.chargeBusiness,
+                  ),
                 ],
                 const SizedBox(height: 24),
                 Row(
@@ -308,7 +337,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             foregroundColor: kPrimary,
                             side: const BorderSide(color: kPrimary),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                         ),
@@ -329,7 +359,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                         ),
@@ -345,7 +376,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _detailRow(
-      BuildContext ctx, IconData icon, String label, String value) {
+    BuildContext ctx,
+    IconData icon,
+    String label,
+    String value,
+  ) {
     final cs = Theme.of(ctx).colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,14 +400,17 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Text(
             label,
             style: TextStyle(
-                fontSize: 13,
-                color: cs.onSurfaceVariant,
-                fontWeight: FontWeight.w500),
+              fontSize: 13,
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
         Expanded(
-          child: Text(value,
-              style: TextStyle(fontSize: 13, color: cs.onSurface)),
+          child: Text(
+            value,
+            style: TextStyle(fontSize: 13, color: cs.onSurface),
+          ),
         ),
       ],
     );
@@ -396,25 +434,26 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
-          // 신분 뱃지
-          Container(
-            margin: const EdgeInsets.only(right: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: auth.isStaff
-                  ? kPrimary.withValues(alpha: 0.12)
-                  : const Color(0xFF1565A8).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              auth.isStaff ? '교직원' : '학생',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: auth.isStaff ? kPrimary : const Color(0xFF1565A8),
+          // 신분 뱃지 (로그인이 꺼져 있으면 역할이 고정이라 숨김)
+          if (kLoginEnabled)
+            Container(
+              margin: const EdgeInsets.only(right: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: auth.isStaff
+                    ? kPrimary.withValues(alpha: 0.12)
+                    : const Color(0xFF1565A8).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                auth.isStaff ? '교직원' : '학생',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: auth.isStaff ? kPrimary : const Color(0xFF1565A8),
+                ),
               ),
             ),
-          ),
           IconButton(
             icon: Icon(Icons.settings_rounded, color: cs.onSurfaceVariant),
             tooltip: '설정',
@@ -425,53 +464,62 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          IconButton(
-            icon: Icon(Icons.logout_rounded, color: cs.onSurfaceVariant),
-            tooltip: '로그아웃',
-            onPressed: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (ctx) {
-                  final cs = Theme.of(ctx).colorScheme;
-                  return AlertDialog(
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20)),
-                    backgroundColor: cs.surfaceContainerLowest,
-                    title: const Text('로그아웃',
+          if (kLoginEnabled)
+            IconButton(
+              icon: Icon(Icons.logout_rounded, color: cs.onSurfaceVariant),
+              tooltip: '로그아웃',
+              onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) {
+                    final cs = Theme.of(ctx).colorScheme;
+                    return AlertDialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      backgroundColor: cs.surfaceContainerLowest,
+                      title: const Text(
+                        '로그아웃',
                         style: TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.w700)),
-                    content: const Text('정말 로그아웃 하시겠습니까?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: Text('취소',
-                            style: TextStyle(color: cs.onSurfaceVariant)),
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFDC2626),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
                         ),
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('로그아웃'),
                       ),
-                    ],
-                  );
-                },
-              );
-              if (confirmed != true) return;
-              await AuthService.instance.clearSession();
-              AuthService.instance.logout();
-              if (!context.mounted) return;
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-              );
-            },
-          ),
+                      content: const Text('정말 로그아웃 하시겠습니까?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: Text(
+                            '취소',
+                            style: TextStyle(color: cs.onSurfaceVariant),
+                          ),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFDC2626),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('로그아웃'),
+                        ),
+                      ],
+                    );
+                  },
+                );
+                if (confirmed != true) return;
+                await AuthService.instance.clearSession();
+                AuthService.instance.logout();
+                if (!context.mounted) return;
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+              },
+            ),
         ],
       ),
       body: RefreshIndicator(
@@ -545,83 +593,9 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          if (Platform.isIOS) ...[
-            const SizedBox(height: 10),
-            _ServiceCard(
-              icon: Icons.phone_in_talk_rounded,
-              iconBgStart: const Color(0xFF6A1B9A),
-              iconBgEnd: const Color(0xFFAB47BC),
-              title: '전화번호 교직원 조회',
-              subtitle: '수신 번호를 입력해 발신자 정보 확인',
-              onTap: () => _showPhoneLookupDialog(context),
-            ),
-          ],
         ],
       ),
     );
-  }
-
-  Future<void> _showPhoneLookupDialog(BuildContext context) async {
-    final controller = TextEditingController();
-    final cs = Theme.of(context).colorScheme;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        backgroundColor: cs.surfaceContainerLowest,
-        title: const Text('전화번호 교직원 조회',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('수신한 전화번호를 입력하면\n교직원 정보를 알림으로 알려드립니다.',
-                style: TextStyle(fontSize: 13)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.phone,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: '예) 053-850-0000',
-                prefixIcon: const Icon(Icons.phone_rounded, color: kPrimary),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: kPrimary, width: 2),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('취소', style: TextStyle(color: cs.onSurfaceVariant)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: kPrimary,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () async {
-              final number = controller.text.trim();
-              Navigator.pop(ctx);
-              if (number.isEmpty) return;
-              const ch = MethodChannel('du_who/call_overlay');
-              try {
-                await ch.invokeMethod('lookupNumber', {'number': number});
-              } catch (_) {}
-            },
-            child: const Text('조회'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
   }
 
   Widget _buildFavoritesSection(BuildContext context) {
@@ -654,16 +628,20 @@ class _HomeScreenState extends State<HomeScreen> {
               color: cs.surface,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(Icons.star_outline_rounded,
-                size: 30, color: cs.onSurfaceVariant),
+            child: Icon(
+              Icons.star_outline_rounded,
+              size: 30,
+              color: cs.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             '즐겨찾기가 없습니다',
             style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: cs.onSurface),
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurface,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -691,10 +669,11 @@ class _HomeScreenState extends State<HomeScreen> {
             for (int i = 0; i < _favorites.length; i++) ...[
               if (i > 0)
                 Divider(
-                    height: 1,
-                    indent: 72,
-                    endIndent: 16,
-                    color: cs.outlineVariant),
+                  height: 1,
+                  indent: 72,
+                  endIndent: 16,
+                  color: cs.outlineVariant,
+                ),
               _favoriteTile(context, _favorites[i]),
             ],
           ],
@@ -727,7 +706,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: cs.primaryContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.person_rounded, color: kPrimary, size: 24),
+              child: const Icon(
+                Icons.person_rounded,
+                color: kPrimary,
+                size: 24,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -737,15 +720,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(
                     s.name,
                     style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: cs.onSurface),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
+                    ),
                   ),
                   if (subtitle.isNotEmpty)
                     Text(
                       subtitle,
                       style: TextStyle(
-                          fontSize: 12, color: cs.onSurfaceVariant),
+                        fontSize: 12,
+                        color: cs.onSurfaceVariant,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -753,12 +739,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.star_rounded,
-                  color: Colors.amber, size: 22),
+              icon: const Icon(
+                Icons.star_rounded,
+                color: Colors.amber,
+                size: 22,
+              ),
               tooltip: '즐겨찾기 해제',
               padding: EdgeInsets.zero,
-              constraints:
-                  const BoxConstraints(minWidth: 36, minHeight: 36),
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               onPressed: () => _toggleFavorite(s),
             ),
             if (phone.isNotEmpty) ...[
@@ -771,8 +759,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.call_rounded,
-                      color: kPrimary, size: 18),
+                  icon: const Icon(
+                    Icons.call_rounded,
+                    color: kPrimary,
+                    size: 18,
+                  ),
                   padding: EdgeInsets.zero,
                   tooltip: '전화걸기',
                   onPressed: () => _makePhoneCall(phone),
@@ -850,13 +841,18 @@ class _ServiceCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: TextStyle(
-                          fontSize: 13, color: cs.onSurfaceVariant),
+                        fontSize: 13,
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded,
-                  color: cs.outlineVariant, size: 22),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: cs.outlineVariant,
+                size: 22,
+              ),
             ],
           ),
         ),

@@ -117,3 +117,28 @@ app.*.symbols
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
+# ─── DU-WHO: 비밀 정보 / 개인정보 (저장소에 올리지 않는다) ───
+# lib/config.dart 는 키 없이 커밋한다(키는 --dart-define 으로 주입)
+# 서명 키
+key.properties
+*.keystore
+*.p12
+*.pem
+# 교직원 데이터(휴대폰 번호 등 개인정보). 빌드하려면 assets/staff_db.json 을 직접 넣는다
+assets/staff_db.json
+sampledb_*.json
+alias sample data.json
+
+# AI 서버(Cloudflare Worker)
+worker/node_modules/
+worker/.wrangler/
+worker/.dev.vars
+
+# 편집기·OS 개인 파일
+.DS_Store
+.idea/
+*.iml
+.vscode/
+
+# 로컬 작업 메모(저장소에는 올리지 않는다)
+plan.md

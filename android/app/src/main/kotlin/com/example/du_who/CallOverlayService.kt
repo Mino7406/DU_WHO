@@ -56,8 +56,22 @@ class CallOverlayService : Service() {
 
         val nm = getSystemService(NotificationManager::class.java) ?: return
 
-        val title = "📞 ${staff.name}"
+        // 여러 명이 같이 쓰는 번호면 사람 대신 부서 단위로 보여준다
+        val title = if (staff.sharedCount > 1) {
+            "📞 ${staff.department.ifEmpty { staff.name }} (${staff.sharedCount}명 공용)"
+        } else {
+            "📞 ${staff.name}"
+        }
         val body = buildString {
+            if (staff.sharedCount > 1) {
+                append(staff.sharedNames.joinToString(", "))
+                if (staff.sharedCount > staff.sharedNames.size) append(" 외")
+                if (staff.location.isNotEmpty()) {
+                    append("  ")
+                    append(if (isStaff) staff.location else summarizeLocation(staff.location))
+                }
+                return@buildString
+            }
             if (staff.department.isNotEmpty()) append(staff.department)
             // 직위: 교직원 계정만 표시
             if (isStaff && staff.title.isNotEmpty()) {
@@ -105,6 +119,9 @@ class CallOverlayService : Service() {
         val department: String,
         val title: String,
         val location: String,
+        // 같은 번호를 쓰는 사람 수와 이름 일부(공용 번호 표시용)
+        val sharedCount: Int = 1,
+        val sharedNames: List<String> = emptyList(),
     )
 
     private fun queryStaff(rawNumber: String, isStaff: Boolean): StaffInfo? {
@@ -118,40 +135,27 @@ class CallOverlayService : Service() {
 
         return try {
             SQLiteDatabase.openDatabase(dbPath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                // 학생: 교내전화(tel)만 매칭, 교직원: 교내+휴대전화 모두 매칭
-                val (sql, args) = if (isStaff) {
-                    val q = """
-                        SELECT name, department, title, location FROM staff
-                        WHERE REPLACE(REPLACE(tel,     '-',''),' ','') = ?
-                           OR REPLACE(REPLACE(cell_tel,'-',''),' ','') = ?
-                           OR (
-                               LENGTH(REPLACE(REPLACE(tel,'-',''),' ','')) >= 4
-                               AND REPLACE(REPLACE(tel,'-',''),' ','') NOT IN ('','0000')
-                               AND ? LIKE '%' || REPLACE(REPLACE(tel,'-',''),' ','')
-                           )
-                        LIMIT 1
-                    """.trimIndent()
-                    Pair(q, arrayOf(cleaned, cleaned, cleaned))
-                } else {
-                    val q = """
-                        SELECT name, department, title, location FROM staff
-                        WHERE REPLACE(REPLACE(tel,'-',''),' ','') = ?
-                           OR (
-                               LENGTH(REPLACE(REPLACE(tel,'-',''),' ','')) >= 4
-                               AND REPLACE(REPLACE(tel,'-',''),' ','') NOT IN ('','0000')
-                               AND ? LIKE '%' || REPLACE(REPLACE(tel,'-',''),' ','')
-                           )
-                        LIMIT 1
-                    """.trimIndent()
-                    Pair(q, arrayOf(cleaned, cleaned))
-                }
-                db.rawQuery(sql, args).use { c ->
-                    if (!c.moveToFirst()) return null
-                    StaffInfo(
-                        name       = c.getString(0) ?: return null,
-                        department = c.getString(1) ?: "",
-                        title      = c.getString(2) ?: "",
-                        location   = c.getString(3) ?: "",
+                val args = arrayOf(cleaned, if (isStaff) "1" else "0")
+                db.rawQuery(MATCH_SQL, args).use { c ->
+                    val matches = mutableListOf<StaffInfo>()
+                    var bestRank = -1
+                    while (c.moveToNext()) {
+                        val rank = c.getInt(4)
+                        // 가장 정확한 순위의 결과만 사용 (휴대폰 일치 > 교내전화 일치 > 내선)
+                        if (bestRank == -1) bestRank = rank
+                        if (rank != bestRank) break
+                        matches += StaffInfo(
+                            name       = c.getString(0) ?: continue,
+                            department = c.getString(1) ?: "",
+                            title      = c.getString(2) ?: "",
+                            location   = c.getString(3) ?: "",
+                        )
+                    }
+                    val first = matches.firstOrNull() ?: return null
+                    if (matches.size == 1) first
+                    else first.copy(
+                        sharedCount = matches.size,
+                        sharedNames = matches.take(3).map { it.name },
                     )
                 }
             }
@@ -228,6 +232,29 @@ class CallOverlayService : Service() {
     }
 
     companion object {
+        /**
+         * 발신 번호 → 교직원 매칭. ?1 = 숫자만 남긴 수신 번호, ?2 = 교직원 계정이면 1.
+         * 전체 번호가 정확히 같을 때만 매칭한다. 끝자리만 비교하면 4자리 내선번호(105건) 때문에
+         * 관계없는 번호의 약 1%가 교직원으로 잘못 감지됐다.
+         * 4자리 내선은 학교 국번(053-850, 053-650)이 붙은 번호로 걸려올 때만 매칭한다.
+         * 학생: 교내전화만, 교직원: 휴대전화도 매칭. ios/Runner/StaffDatabase.swift 와 같은 SQL.
+         */
+        private val MATCH_SQL = """
+            SELECT name, department, title, location,
+                   CASE WHEN ?2 = 1 AND c = ?1 THEN 0 WHEN t = ?1 THEN 1 ELSE 2 END AS rank
+            FROM (
+                SELECT name, department, title, location,
+                       REPLACE(REPLACE(tel,     '-', ''), ' ', '') AS t,
+                       REPLACE(REPLACE(cell_tel,'-', ''), ' ', '') AS c
+                FROM staff
+            )
+            WHERE (?2 = 1 AND c = ?1)
+               OR t = ?1
+               OR (LENGTH(t) = 4 AND t <> '0000' AND ?1 IN ('053850' || t, '053650' || t))
+            ORDER BY rank
+            LIMIT 20
+        """.trimIndent()
+
         const val CALLER_CH     = "du_who_caller"
         const val CALLER_NOTIF_ID = 7004
         const val FG_CH         = "du_who_fg"
