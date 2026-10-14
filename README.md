@@ -1,6 +1,6 @@
 # DU-WHO
 
-대구대학교 재학생 및 교직원을 위한 교직원 안내 안드로이드 애플리케이션.  
+대구대학교 재학생 및 교직원을 위한 교직원 안내 애플리케이션.  
 교직원 연락처 검색, AI 기반 업무 안내, 전화 수신 시 발신자 자동 식별 기능을 제공한다.
 
 ---
@@ -22,7 +22,7 @@
 교내 전화 수신 시 발신 번호만으로는 어느 부서·누구에게서 온 것인지 알기 어렵다.  
 DU-WHO는 대구대학교 교직원 DB를 기반으로 다음 문제를 해결한다.
 
-- 전화 수신 중 발신자의 소속·직위를 화면에 오버레이로 표시
+- 전화 수신 중 발신자의 소속·직위를 화면에 오버레이로 표시 (Android)
 - 이름·부서·담당업무 기준 교직원 빠른 검색
 - AI 챗봇을 통한 부서 업무 및 담당자 자연어 안내
 - 신분(학생/교직원)에 따른 정보 노출 범위 차등 적용
@@ -59,11 +59,11 @@ DU-WHO는 대구대학교 교직원 DB를 기반으로 다음 문제를 해결�
 - 대화 히스토리 유지 (초기화 버튼 제공)
 - 타임아웃·네트워크 오류 메시지 처리
 
-### 전화 수신 식별
+### 전화 수신 식별 (Android 전용)
 - 전화 수신 시 교내 번호 여부를 DB에서 조회
 - 발신자 소속·직위 정보를 오버레이 알림으로 표시
 
-### 자동 업데이트 감지
+### 자동 업데이트 감지 (Android 전용)
 - 앱 시작 시 GitHub Releases API로 최신 버전 확인
 - 현재 버전보다 높은 릴리즈 존재 시 업데이트 다이얼로그 표시
 - 설정 화면에서 수동 업데이트 확인 가능
@@ -86,7 +86,7 @@ DU-WHO는 대구대학교 교직원 DB를 기반으로 다음 문제를 해결�
 | URL 실행 | url_launcher `^6.3.2` |
 | 권한 | permission_handler `^11.3.1` |
 | 파일 경로 | path_provider `^2.1.4`, path `^1.9.0` |
-| 개발 도구 | Visual Studio Code, Android Studio |
+| 개발 도구 | Visual Studio Code, Xcode, Android Studio |
 | 형상 관리 | Git / GitHub |
 
 ---
@@ -145,8 +145,8 @@ lib/
 `AuthService.effectivePhone()` / `effectiveLocation()`으로 표시 로직을 한 곳에 집중했다.  
 UI 레이어는 신분 판별 없이 이 메서드 반환값만 사용한다.
 
-### Android 전용 앱
-알림메모와 같이 Android만 지원한다(iOS·웹·데스크톱 폴더 제거). MethodChannel 호출, 전화 권한 요청, 업데이트 감지에 남아 있는 `Platform.isAndroid` 가드는 PC에서 도는 위젯 테스트가 네이티브 호출로 실패하지 않게 하는 용도다.
+### Android 전용 기능 격리
+MethodChannel 호출, 전화 권한 요청, 업데이트 감지는 모두 `Platform.isAndroid` 가드로 분리되어 iOS 빌드에 영향을 주지 않는다.
 
 ### 세션 영속화
 `SharedPreferences` 대신 `getApplicationSupportDirectory()`의 `session.json` 파일을 사용한다.  

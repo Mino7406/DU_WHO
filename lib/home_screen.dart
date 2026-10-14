@@ -31,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadFavorites();
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid || Platform.isIOS) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _requestCallPermissions(),
       );
@@ -129,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _requestCallPermissions() async {
     const ch = MethodChannel('du_who/call_overlay');
 
-    // 알림 권한 (발신자 안내 알림 표시용)
+    // 공통: Notification 권한 (iOS는 CallKit 감지에 별도 권한 불필요)
     final notifStatus = await Permission.notification.status;
     if (notifStatus.isDenied) await Permission.notification.request();
 
@@ -593,9 +593,89 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
+          if (Platform.isIOS) ...[
+            const SizedBox(height: 10),
+            _ServiceCard(
+              icon: Icons.phone_in_talk_rounded,
+              iconBgStart: const Color(0xFF6A1B9A),
+              iconBgEnd: const Color(0xFFAB47BC),
+              title: '전화번호 교직원 조회',
+              subtitle: '수신 번호를 입력해 발신자 정보 확인',
+              onTap: () => _showPhoneLookupDialog(context),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _showPhoneLookupDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    final cs = Theme.of(context).colorScheme;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: cs.surfaceContainerLowest,
+        title: const Text(
+          '전화번호 교직원 조회',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '수신한 전화번호를 입력하면\n교직원 정보를 알림으로 알려드립니다.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.phone,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: '예) 053-850-0000',
+                prefixIcon: const Icon(Icons.phone_rounded, color: kPrimary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: kPrimary, width: 2),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('취소', style: TextStyle(color: cs.onSurfaceVariant)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kPrimary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () async {
+              final number = controller.text.trim();
+              Navigator.pop(ctx);
+              if (number.isEmpty) return;
+              const ch = MethodChannel('du_who/call_overlay');
+              try {
+                await ch.invokeMethod('lookupNumber', {'number': number});
+              } catch (_) {}
+            },
+            child: const Text('조회'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
   }
 
   Widget _buildFavoritesSection(BuildContext context) {

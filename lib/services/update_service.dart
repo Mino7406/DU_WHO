@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 const _kCurrentVersion = '1.1.0';
-const _kRepo           = 'Mino7406/DU_WHO';
+const _kRepo = 'Mino7406/DU_WHO';
 
 class UpdateInfo {
   final String latestVersion;
@@ -22,12 +22,14 @@ class UpdateService {
   UpdateService._();
 
   // 최신 릴리즈를 조회하여 현재 버전보다 새로운 경우 UpdateInfo 반환, 아니면 null
-  static Future<UpdateInfo?> checkForUpdate() async {
+  // currentVersion 은 테스트에서 낮은 버전을 넣어 업데이트 감지 경로를 확인할 때 쓴다
+  static Future<UpdateInfo?> checkForUpdate({
+    String currentVersion = _kCurrentVersion,
+  }) async {
     try {
       final resp = await http
           .get(
-            Uri.parse(
-                'https://api.github.com/repos/$_kRepo/releases/latest'),
+            Uri.parse('https://api.github.com/repos/$_kRepo/releases/latest'),
             headers: {'Accept': 'application/vnd.github.v3+json'},
           )
           .timeout(const Duration(seconds: 10));
@@ -41,7 +43,7 @@ class UpdateService {
           : rawTag;
 
       if (latestVersion.isEmpty) return null;
-      if (!_isNewer(latestVersion, _kCurrentVersion)) return null;
+      if (!_isNewer(latestVersion, currentVersion)) return null;
 
       final releaseUrl = (data['html_url'] as String?) ?? '';
       final assets = data['assets'] as List<dynamic>?;
@@ -84,7 +86,9 @@ class UpdateService {
   static List<int> _parse(String v) {
     final parts = v.split('.');
     return List.generate(
-        3, (i) => i < parts.length ? (int.tryParse(parts[i]) ?? 0) : 0);
+      3,
+      (i) => i < parts.length ? (int.tryParse(parts[i]) ?? 0) : 0,
+    );
   }
 
   static String? _trimNotes(String? notes) {
