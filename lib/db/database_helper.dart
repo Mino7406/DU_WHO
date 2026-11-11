@@ -30,7 +30,8 @@ class DatabaseHelper {
   // 1 → 2: favorites 를 staff.id 대신 user_id 로 저장, meta 테이블 추가
   // 2 → 3: 최근 본 교직원(recents) 테이블 추가
   // 3 → 4: favorites 에 owner(로그인 아이디) 추가. 계정마다 즐겨찾기를 따로 둔다
-  static const _dbVersion = 4;
+  // 4 → 5: recents 에도 owner 추가. 최근 본 교직원도 계정마다 따로 둔다
+  static const _dbVersion = 5;
   static const _seedAsset = 'assets/staff_db.json';
 
   final DatabaseFactory? _factory;
@@ -94,9 +95,11 @@ class DatabaseHelper {
     'user_id TEXT NOT NULL, PRIMARY KEY (owner, user_id))',
   );
 
-  // 최근 본 교직원. 상세를 열거나 전화를 걸 때 시각(ms)을 갱신한다
+  // 최근 본 교직원. "누가(owner) 누구를(user_id) 언제(at, ms) 봤다"를 한 줄로 저장한다.
+  // 상세를 열거나 전화를 걸 때 시각을 갱신한다
   Future<void> _createRecents(DatabaseExecutor db) => db.execute(
-    'CREATE TABLE IF NOT EXISTS recents (user_id TEXT PRIMARY KEY, at INTEGER NOT NULL)',
+    "CREATE TABLE IF NOT EXISTS recents (owner TEXT NOT NULL DEFAULT '', "
+    'user_id TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (owner, user_id))',
   );
 
   Future<void> _createMeta(DatabaseExecutor db) => db.execute(
@@ -124,6 +127,11 @@ class DatabaseHelper {
       // 계정 구분이 없던 기존 즐겨찾기는 누구 것인지 알 수 없어 버리고, owner 가 있는 구조로 새로 만든다
       await db.execute('DROP TABLE IF EXISTS favorites');
       await _createFavorites(db);
+    }
+    if (oldVersion < 5) {
+      // 최근 본 교직원도 즐겨찾기와 같이, 계정 구분이 없던 기록은 버리고 새로 만든다
+      await db.execute('DROP TABLE IF EXISTS recents');
+      await _createRecents(db);
     }
   }
 
@@ -222,33 +230,43 @@ class DatabaseHelper {
   }
 
   /// 최근 본 교직원으로 기록한다. 오래된 것은 [keep]개만 남기고 지운다
-  Future<void> addRecent(String userId, {int keep = 20}) async {
+  Future<void> addRecent(
+    String userId, {
+    required String owner,
+    int keep = 20,
+  }) async {
     final db = await database;
     await db.insert('recents', {
+      'owner': owner,
       'user_id': userId,
       'at': DateTime.now().millisecondsSinceEpoch,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+    // 오래된 기록은 그 계정 안에서만 [keep]개를 남기고 지운다
     await db.rawDelete(
-      'DELETE FROM recents WHERE user_id NOT IN '
-      '(SELECT user_id FROM recents ORDER BY at DESC LIMIT ?)',
-      [keep],
+      'DELETE FROM recents WHERE owner = ? AND user_id NOT IN '
+      '(SELECT user_id FROM recents WHERE owner = ? ORDER BY at DESC LIMIT ?)',
+      [owner, owner, keep],
     );
   }
 
-  /// 최근 본 교직원, 최근 순. 지금 데이터에 없는 사람은 빠진다
-  Future<List<Staff>> getRecentStaff({int limit = 10}) async {
+  /// [owner]가 최근 본 교직원, 최근 순. 지금 데이터에 없는 사람은 빠진다
+  Future<List<Staff>> getRecentStaff({
+    required String owner,
+    int limit = 10,
+  }) async {
     final db = await database;
     final rows = await db.rawQuery(
       'SELECT s.* FROM recents r JOIN staff s ON s.user_id = r.user_id '
-      'GROUP BY r.user_id ORDER BY r.at DESC LIMIT ?',
-      [limit],
+      'WHERE r.owner = ? GROUP BY r.user_id ORDER BY r.at DESC LIMIT ?',
+      [owner, limit],
     );
     return rows.map(Staff.fromMap).toList();
   }
 
-  Future<void> clearRecents() async {
+  /// [owner]의 최근 기록만 지운다
+  Future<void> clearRecents({required String owner}) async {
     final db = await database;
-    await db.delete('recents');
+    await db.delete('recents', where: 'owner = ?', whereArgs: [owner]);
   }
 
   /// [owner]의 즐겨찾기에서만 뺀다. 다른 계정이 같은 교직원을 즐겨찾기한 줄은 남는다

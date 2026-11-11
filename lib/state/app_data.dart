@@ -30,7 +30,7 @@ class AppData extends ChangeNotifier {
     _departments = groupByDepartment(_all);
     await fav.loadFavoritesFromDb();
     _favorites = await db.getFavoriteStaff(owner: AuthService.instance.userId);
-    _recents = await db.getRecentStaff();
+    _recents = await db.getRecentStaff(owner: AuthService.instance.userId);
     _loaded = true;
     notifyListeners();
   }
@@ -46,13 +46,16 @@ class AppData extends ChangeNotifier {
   /// 상세를 열거나 전화를 걸면 최근 본 교직원으로 기록한다
   Future<void> addRecent(Staff s) async {
     if (s.userId.isEmpty) return;
-    await DatabaseHelper.instance.addRecent(s.userId);
-    _recents = await DatabaseHelper.instance.getRecentStaff();
+    final owner = AuthService.instance.userId;
+    await DatabaseHelper.instance.addRecent(s.userId, owner: owner);
+    _recents = await DatabaseHelper.instance.getRecentStaff(owner: owner);
     notifyListeners();
   }
 
   Future<void> clearRecents() async {
-    await DatabaseHelper.instance.clearRecents();
+    await DatabaseHelper.instance.clearRecents(
+      owner: AuthService.instance.userId,
+    );
     _recents = const [];
     notifyListeners();
   }

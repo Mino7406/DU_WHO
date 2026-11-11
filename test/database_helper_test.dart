@@ -78,6 +78,37 @@ void main() {
     await close(h);
   });
 
+  test('최근 본 교직원도 계정(owner)마다 따로 저장된다', () async {
+    final h = helper(
+      seed([
+        ['a1', '가나', '총무팀'],
+        ['b2', '다라', '학생지원팀'],
+        ['c3', '마바', '입학팀'],
+      ]),
+    );
+    await h.addRecent('a1', owner: '22124248');
+    await h.addRecent('b2', owner: '22124248');
+    await h.addRecent('c3', owner: '32152');
+
+    expect(
+      (await h.getRecentStaff(owner: '22124248')).map((s) => s.userId).toSet(),
+      {'a1', 'b2'},
+    );
+    expect((await h.getRecentStaff(owner: '32152')).single.userId, 'c3');
+    expect(await h.getRecentStaff(owner: ''), isEmpty);
+
+    // 오래된 기록 정리(keep)는 그 계정 안에서만 한다
+    await h.addRecent('c3', owner: '22124248', keep: 1);
+    expect((await h.getRecentStaff(owner: '22124248')).single.userId, 'c3');
+    expect((await h.getRecentStaff(owner: '32152')).single.userId, 'c3');
+
+    // 지우기도 그 계정 것만
+    await h.clearRecents(owner: '22124248');
+    expect(await h.getRecentStaff(owner: '22124248'), isEmpty);
+    expect((await h.getRecentStaff(owner: '32152')).single.userId, 'c3');
+    await close(h);
+  });
+
   test('시드 JSON 이 바뀌면 다시 채우고, 즐겨찾기는 유지된다', () async {
     final v1 = helper(
       seed([
@@ -155,10 +186,10 @@ void main() {
       ]),
     );
     final db = await h.database;
-    expect(await db.getVersion(), 4);
-    // v3 의 최근 본 교직원 테이블도 생긴다
-    await h.addRecent('a1');
-    expect((await h.getRecentStaff()).single.name, '가나');
+    expect(await db.getVersion(), 5);
+    // 최근 본 교직원 테이블도 owner 가 있는 구조로 생긴다
+    await h.addRecent('a1', owner: '22124248');
+    expect((await h.getRecentStaff(owner: '22124248')).single.name, '가나');
     // 계정 구분이 없던 기존 즐겨찾기는 남지 않는다
     expect(await h.getFavoriteUserIds(owner: ''), isEmpty);
     expect(await h.getFavoriteStaff(owner: ''), isEmpty);
@@ -194,6 +225,7 @@ void main() {
       ),
     );
     await old.insert('favorites', {'user_id': 'b2'});
+    await old.insert('recents', {'user_id': 'a1', 'at': 1});
     await old.close();
 
     final h = helper(
@@ -203,9 +235,13 @@ void main() {
       ]),
     );
     final db = await h.database;
-    expect(await db.getVersion(), 4);
-    final cols = await db.rawQuery('PRAGMA table_info(favorites)');
-    expect(cols.map((c) => c['name']), containsAll(['owner', 'user_id']));
+    expect(await db.getVersion(), 5);
+    for (final table in ['favorites', 'recents']) {
+      final cols = await db.rawQuery('PRAGMA table_info($table)');
+      expect(cols.map((c) => c['name']), containsAll(['owner', 'user_id']));
+    }
+    // 계정 구분이 없던 기존 최근 기록도 남지 않는다
+    expect(await h.getRecentStaff(owner: ''), isEmpty);
     expect(await h.getFavoriteUserIds(owner: ''), isEmpty);
     expect(await h.getFavoriteUserIds(owner: '22124248'), isEmpty);
     // 업그레이드 뒤 새로 넣는 즐겨찾기는 정상 저장된다
