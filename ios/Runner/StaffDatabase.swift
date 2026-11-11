@@ -1,7 +1,7 @@
 import Foundation
 import SQLite3
 
-/// 발신자 교직원 정보 (Android CallOverlayService.StaffInfo 대응)
+/// 발신자 교직원 정보 (Android CallOverlay.StaffInfo 대응)
 struct StaffInfo {
     let name: String
     let department: String
@@ -12,14 +12,14 @@ struct StaffInfo {
     var sharedNames: [String] = []
 }
 
-/// SQLite 교직원 DB 조회 (Android CallOverlayService.queryStaff 이식)
+/// SQLite 교직원 DB 조회 (Android CallOverlay.queryStaff 이식)
 class StaffDatabase {
 
     /// 발신 번호 → 교직원 매칭. ?1 = 숫자만 남긴 수신 번호, ?2 = 교직원 계정이면 1.
     /// 전체 번호가 정확히 같을 때만 매칭한다. 끝자리만 비교하면 4자리 내선번호(105건) 때문에
     /// 관계없는 번호의 약 1%가 교직원으로 잘못 감지됐다.
     /// 4자리 내선은 학교 국번(053-850, 053-650)이 붙은 번호로 걸려올 때만 매칭한다.
-    /// 학생: 교내전화만, 교직원: 휴대전화도 매칭. Android CallOverlayService.MATCH_SQL 과 같은 SQL.
+    /// 학생: 교내전화만, 교직원: 휴대전화도 매칭. Android CallOverlay.MATCH_SQL 과 같은 SQL.
     private static let matchSQL = """
         SELECT name, department, title, location,
                CASE WHEN ?2 = 1 AND c = ?1 THEN 0 WHEN t = ?1 THEN 1 ELSE 2 END AS rank

@@ -60,6 +60,20 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                     "getCallerIdStatus" -> result.success(callerIdStatus())
+                    "requestOverlayPermission" -> {
+                        // "다른 앱 위에 표시"는 설정 화면에서 사용자가 직접 켜야 한다
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            try {
+                                startActivity(
+                                    Intent(
+                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                        Uri.parse("package:$packageName")
+                                    )
+                                )
+                            } catch (_: Exception) {}
+                        }
+                        result.success(null)
+                    }
                     "setCallerIdEnabled" -> {
                         val enabled = call.argument<Boolean>("enabled") ?: true
                         getSharedPreferences(PREFS, MODE_PRIVATE)
@@ -67,22 +81,10 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                     "previewCallerId" -> {
-                        // 실제 수신과 같은 경로(서비스의 DB 조회 → 알림)로 미리보기를 띄운다
+                        // 실제 수신과 같은 경로(전체 화면·알림)로 미리보기를 띄운다
                         val number = call.argument<String>("number") ?: ""
-                        val intent = Intent(this, CallOverlayService::class.java)
-                            .putExtra("action", "show")
-                            .putExtra("phone_number", number)
-                            .putExtra("preview", true)
-                        try {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                startForegroundService(intent)
-                            } else {
-                                startService(intent)
-                            }
-                            result.success(true)
-                        } catch (e: Exception) {
-                            result.success(false)
-                        }
+                        Thread { CallOverlay.show(this, number, preview = true) }.start()
+                        result.success(true)
                     }
                     else -> result.notImplemented()
                 }
@@ -105,6 +107,9 @@ class MainActivity : FlutterActivity() {
             "callLog" to granted(Manifest.permission.READ_CALL_LOG),
             "notifications" to notifications,
             "battery" to battery,
+            // 수신 화면 위에 크게 띄우기(없으면 알림만 뜬다)
+            "overlay" to (Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
+                Settings.canDrawOverlays(this)),
         )
     }
 

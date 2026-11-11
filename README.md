@@ -50,7 +50,7 @@
 **📞 걸려온 학교 번호 알림 (BETA)**
 
 - 전화가 오면 번호를 DB에서 찾아 교직원이면 소속, 직위, 위치를 헤드업 알림으로 띄웁니다. 여러 명이 같이 쓰는 번호면 부서 단위로 보여 줍니다.
-- 찾기 화면의 BETA 카드에서 켜고 끄고, 필요한 권한 상태를 보고, 예시 정보와 가상번호로 `알림 미리보기`를 해 볼 수 있습니다.
+- 찾기 화면의 BETA 카드에서 켜고 끄고, 필요한 권한 상태를 보고, 예시 정보와 가상번호로 `수신 화면 미리보기`를 해 볼 수 있습니다.
 
 **🧩 그 밖에**
 
@@ -101,7 +101,7 @@ DU_WHO/
 │  └─ theme/app_theme.dart       # 대구대 색상과 라이트/다크 테마
 ├─ android/app/src/main/kotlin/com/example/du_who/
 │  ├─ CallReceiver.kt            # 전화 수신 감지. 스위치가 꺼져 있으면 아무것도 안 함
-│  ├─ CallOverlayService.kt      # 번호로 DB 조회 → 발신자 헤드업 알림 → 서비스 종료
+│  ├─ CallOverlay.kt             # 번호로 DB 조회 → 수신 화면 위 전체 화면(받기·거절) + 헤드업 알림
 │  └─ MainActivity.kt            # Flutter와 네이티브 사이 통신(du_who/call_overlay)
 ├─ ios/                          # iOS 빌드(전화번호 직접 입력 조회). 릴리스는 안드로이드만
 ├─ worker/                       # AI 안내 서버(Cloudflare Workers AI)
@@ -229,14 +229,14 @@ npx wrangler deploy
 </details>
 
 <details>
-<summary>📞 <b>걸려온 학교 번호 알림 (BETA)</b> <sub><code>CallReceiver.kt</code>, <code>CallOverlayService.kt</code>, <code>widgets/caller_id_card.dart</code></sub></summary>
+<summary>📞 <b>걸려온 학교 번호 알림 (BETA)</b> <sub><code>CallReceiver.kt</code>, <code>CallOverlay.kt</code>, <code>widgets/caller_id_card.dart</code></sub></summary>
 
 1. 앱을 켤 때 Flutter가 DB 파일 경로와 신분(학생/교직원)을 네이티브에 저장해 둡니다(`saveDbPath`, `saveUserRole`). 앱이 꺼져 있어도 네이티브가 같은 DB를 직접 읽습니다.
-2. 전화가 오면 `CallReceiver`가 BETA 스위치를 확인하고, 켜져 있으면 `CallOverlayService`를 포그라운드 서비스로 바로 시작합니다(ANR 방지).
-3. 서비스가 번호로 DB를 찾습니다. 휴대폰 일치 > 교내전화 일치 > 내선 순으로 가장 정확한 결과만 쓰고, 비어 있거나 `0000`인 번호, 4자리 미만 번호는 건너뜁니다(모든 전화와 매칭되던 오탐 수정).
-4. 교직원 번호일 때만 헤드업 알림을 띄웁니다. 같은 번호를 여러 명이 쓰면 사람 대신 부서와 인원으로 보여 줍니다. 학생이면 직위를 빼고 위치는 건물명만(`공학관 301호` → `공학관`) 보여 줍니다.
-5. 통화가 끝나면 알림을 내리고 서비스를 끝냅니다.
-6. BETA 카드는 전화, 통화 기록, 알림 권한과 배터리 최적화 예외 상태를 보여 주고, 빠진 권한은 `권한 허용`으로 요청합니다. 설정 앱에서 바꾸고 돌아오면 상태를 다시 읽습니다. `알림 미리보기`는 실제 수신과 같은 경로로 예시 정보와 가상번호를 띄웁니다.
+2. 전화가 오면 `CallReceiver`가 BETA 스위치를 확인하고, 켜져 있으면 `CallOverlay.show`를 바로 부릅니다. 앱이 꺼져 있을 때는 안드로이드가 포그라운드 서비스 시작을 막아서(Android 12+) 서비스를 쓰지 않습니다.
+3. 번호로 DB를 찾습니다. 휴대폰 일치 > 교내전화 일치 > 내선 순으로 가장 정확한 결과만 쓰고, 비어 있거나 `0000`인 번호, 4자리 미만 번호는 건너뜁니다(모든 전화와 매칭되던 오탐 수정).
+4. 교직원 번호일 때만 표시합니다. "다른 앱 위에 표시"가 허용돼 있으면 기본 수신 화면을 덮는 전체 화면(이름·부서·위치, `받기`·`거절`, `닫고 기본 전화 화면 보기`)을 띄우고, 아니면 헤드업 알림만 띄웁니다. 같은 번호를 여러 명이 쓰면 사람 대신 부서와 인원으로 보여 줍니다. 학생이면 직위를 빼고 위치는 건물명만(`공학관 301호` → `공학관`) 보여 줍니다.
+5. 전화를 받거나 끊기면 화면과 알림을 내립니다.
+6. BETA 카드는 전화, 통화 기록, 알림 권한과 배터리 최적화 예외, 화면 위 표시 상태를 보여 주고, 빠진 권한은 `권한 허용`으로 요청합니다. 설정 앱에서 바꾸고 돌아오면 상태를 다시 읽습니다. `수신 화면 미리보기`는 실제 수신과 같은 경로로 예시 정보와 가상번호를 띄웁니다.
 
 > [!NOTE]
 > iOS는 걸려온 번호를 앱이 읽을 수 없어서 자동 식별이 안 됩니다. iOS 빌드에서는 ☰ → `전화번호로 조회`에 번호를 직접 넣으면 알림으로 알려 줍니다.
@@ -314,9 +314,9 @@ npx wrangler deploy
 
 | 클래스 / 함수 | 설명 |
 |---|---|
-| `CallReceiver.onReceive` | 전화 상태 변화 수신. 스위치가 켜져 있을 때만 서비스 시작·종료 |
-| `CallOverlayService.queryStaff(number, isStaff)` | 번호로 DB 조회. 휴대폰 > 교내전화 > 내선 순, 공용 번호 판별 |
-| `CallOverlayService.showCallerNotification` | 발신자 헤드업 알림. 신분에 따라 직위·위치를 거름 |
+| `CallReceiver.onReceive` | 전화 상태 변화 수신. 스위치가 켜져 있을 때만 화면을 띄우고 내림 |
+| `CallOverlay.queryStaff(number, isStaff)` | 번호로 DB 조회. 휴대폰 > 교내전화 > 내선 순, 공용 번호 판별 |
+| `CallOverlay.showOverlay` / `showCallerNotification` | 수신 화면 위 전체 화면과 헤드업 알림. 신분에 따라 직위·위치를 거름 |
 | `MainActivity.callerIdStatus()` | BETA 기능에 필요한 권한과 스위치 상태 |
 | `MainActivity` 채널 메서드 | `saveDbPath` `saveUserRole` `getCallerIdStatus` `setCallerIdEnabled` `previewCallerId` `checkCallLogPermission` `requestCallLogPermission` `requestBatteryExemption` |
 
@@ -368,7 +368,8 @@ npx wrangler deploy
 | `READ_PHONE_STATE` | 전화가 오는지 감지 |
 | `READ_CALL_LOG` | 걸려온 번호 읽기(안드로이드 9 이상) |
 | `POST_NOTIFICATIONS` | 발신자 알림(안드로이드 13 이상) |
-| `FOREGROUND_SERVICE` | 전화가 오는 동안 조회 서비스를 유지 |
+| `SYSTEM_ALERT_WINDOW` | 수신 화면 위에 교직원 정보를 크게 표시(선택, 없으면 알림만) |
+| `ANSWER_PHONE_CALLS` | 그 화면의 `받기`·`거절` 버튼 |
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | 배터리 절약 때문에 알림이 늦거나 안 뜨는 것을 막음(선택) |
 | `INTERNET` | AI 안내, 업데이트 확인 |
 

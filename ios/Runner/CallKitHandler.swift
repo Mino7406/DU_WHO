@@ -3,7 +3,7 @@ import CallKit
 import UserNotifications
 
 /// CXCallObserver로 수신 전화를 감지하고 교직원 정보를 알림으로 표시.
-/// Android CallReceiver + CallOverlayService 대응.
+/// Android CallReceiver + CallOverlay 대응.
 /// 제약: 앱 프로세스가 살아있을 때만 동작 (iOS 시스템 제약).
 class CallKitHandler: NSObject, CXCallObserverDelegate {
 

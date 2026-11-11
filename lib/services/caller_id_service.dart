@@ -10,6 +10,9 @@ class CallerIdStatus {
   final bool notifications;
   final bool battery;
 
+  /// "다른 앱 위에 표시". 있으면 수신 화면 위에 크게 띄우고, 없으면 알림만 뜬다
+  final bool overlay;
+
   const CallerIdStatus({
     required this.supported,
     required this.enabled,
@@ -17,6 +20,7 @@ class CallerIdStatus {
     this.callLog = true,
     this.notifications = true,
     this.battery = true,
+    this.overlay = true,
   });
 
   /// 알림이 실제로 뜨는 데 필요한 권한이 모두 있는지
@@ -29,6 +33,7 @@ class CallerIdStatus {
     callLog: m['callLog'] != false,
     notifications: m['notifications'] != false,
     battery: m['battery'] != false,
+    overlay: m['overlay'] != false,
   );
 }
 
@@ -52,7 +57,14 @@ class CallerIdService {
     } catch (_) {}
   }
 
-  /// [number]로 전화가 온 것처럼 알림을 띄운다. 실제 수신과 같은 DB 조회·알림 경로를 쓴다
+  /// "다른 앱 위에 표시" 설정 화면을 연다(사용자가 직접 켜야 한다)
+  static Future<void> requestOverlay() async {
+    try {
+      await _channel.invokeMethod('requestOverlayPermission');
+    } catch (_) {}
+  }
+
+  /// [number]로 전화가 온 것처럼 화면·알림을 띄운다. 실제 수신과 같은 DB 조회·알림 경로를 쓴다
   static Future<bool> preview(String number) async {
     try {
       return await _channel.invokeMethod<bool>('previewCallerId', {

@@ -9,7 +9,7 @@ import '../theme/app_theme.dart';
 import 'app_feedback.dart';
 import 'app_widgets.dart';
 
-/// BETA: 걸려온 학교 번호 알림. 켜고 끄기, 필요한 권한 상태, 알림 미리보기.
+/// BETA: 걸려온 학교 번호 알림. 켜고 끄기, 필요한 권한 상태, 수신 화면 미리보기.
 /// 설정 앱에서 권한을 바꾸고 돌아오면 상태를 다시 읽는다.
 class CallerIdBetaCard extends StatefulWidget {
   const CallerIdBetaCard({super.key});
@@ -81,6 +81,17 @@ class _CallerIdBetaCardState extends State<CallerIdBetaCard>
         confirmLabel: '설정 열기',
       );
       if (open) await openAppSettings();
+    } else if (!(_status?.overlay ?? true)) {
+      final open = await showAppDialog(
+        context,
+        icon: Icons.picture_in_picture_alt_rounded,
+        title: '전화 화면 위에 표시',
+        content: const Text(
+          '"다른 앱 위에 표시"를 허용하면 전화가 올 때 교직원 이름·부서를 화면 가득 크게 보여드리고, 그 화면에서 바로 받을 수 있어요.\n허용하지 않으면 상단 알림으로만 알려드려요.',
+        ),
+        confirmLabel: '설정 열기',
+      );
+      if (open) await CallerIdService.requestOverlay();
     }
   }
 
@@ -92,7 +103,7 @@ class _CallerIdBetaCardState extends State<CallerIdBetaCard>
     if (!mounted) return;
     showAppToast(
       context,
-      ok ? '예시 알림을 보냈어요 (가상번호 $_virtualNumber)' : '미리보기를 보내지 못했습니다',
+      ok ? '예시 화면을 띄웠어요 (가상번호 $_virtualNumber)' : '미리보기를 보내지 못했습니다',
       isError: !ok,
     );
   }
@@ -146,7 +157,7 @@ class _CallerIdBetaCardState extends State<CallerIdBetaCard>
           Text(
             isIOS
                 ? 'iOS는 발신 번호를 읽을 수 없어 전화가 오면 안내 알림만 보내요. 메뉴의 "전화번호로 조회"로 번호를 직접 확인할 수 있어요.'
-                : '교직원 번호로 전화가 오면 이름·부서를 알림으로 알려드려요. 학교 번호가 아니면 알리지 않아요.',
+                : '교직원 번호로 전화가 오면 이름·부서를 전화 화면 위에 크게 보여드려요. 학교 번호가 아니면 알리지 않아요.',
             style: TextStyle(fontSize: 12.5, color: sub, height: 1.5),
           ),
           if (s == null) ...[
@@ -166,6 +177,7 @@ class _CallerIdBetaCardState extends State<CallerIdBetaCard>
                   _StatusChip('통화기록', s.callLog),
                   _StatusChip('알림', s.notifications),
                   _StatusChip('배터리 예외', s.battery, optional: true),
+                  _StatusChip('화면 위 표시', s.overlay, optional: true),
                 ],
               ),
             ],
@@ -179,7 +191,7 @@ class _CallerIdBetaCardState extends State<CallerIdBetaCard>
                       Icons.notifications_active_rounded,
                       size: 17,
                     ),
-                    label: const Text('알림 미리보기'),
+                    label: Text(isIOS ? '알림 미리보기' : '수신 화면 미리보기'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.accent(context),
                       side: BorderSide(
@@ -193,7 +205,7 @@ class _CallerIdBetaCardState extends State<CallerIdBetaCard>
                     ),
                   ),
                 ),
-                if (s.supported && !s.ready) ...[
+                if (s.supported && (!s.ready || !s.overlay)) ...[
                   const SizedBox(width: 8),
                   Expanded(
                     child: FilledButton.icon(
