@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../auth.dart';
 import '../db/database_helper.dart';
 import '../staff_model.dart';
 import '../utils/staff_search.dart';
@@ -28,7 +29,7 @@ class AppData extends ChangeNotifier {
     _all = await db.getAllStaff();
     _departments = groupByDepartment(_all);
     await fav.loadFavoritesFromDb();
-    _favorites = await db.getFavoriteStaff();
+    _favorites = await db.getFavoriteStaff(owner: AuthService.instance.userId);
     _recents = await db.getRecentStaff();
     _loaded = true;
     notifyListeners();
@@ -36,7 +37,9 @@ class AppData extends ChangeNotifier {
 
   Future<void> toggleFavorite(Staff s) async {
     await fav.toggleFavorite(s);
-    _favorites = await DatabaseHelper.instance.getFavoriteStaff();
+    _favorites = await DatabaseHelper.instance.getFavoriteStaff(
+      owner: AuthService.instance.userId,
+    );
     notifyListeners();
   }
 

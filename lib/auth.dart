@@ -19,8 +19,12 @@ class AuthService {
 
   UserRole _role = _defaultRole;
 
+  // 로그인한 아이디. 즐겨찾기를 계정마다 따로 저장하는 데 쓴다. '' 이면 로그인하지 않은 기본 계정
+  String _userId = '';
+
   UserRole get role => _role;
   bool get isStaff => _role == UserRole.staff;
+  String get userId => _userId;
 
   static const _studentIds = {'22124206', '22124073', '22124248', '22124549'};
 
@@ -28,10 +32,12 @@ class AuthService {
     if (password != '12345') return false;
     if (_studentIds.contains(id)) {
       _role = UserRole.student;
+      _userId = id;
       return true;
     }
     if (id == '32152') {
       _role = UserRole.staff;
+      _userId = id;
       return true;
     }
     return false;
@@ -39,6 +45,7 @@ class AuthService {
 
   void logout() {
     _role = _defaultRole;
+    _userId = '';
   }
 
   // ─── 자동 로그인 세션 ─────────────────────────────────────────
@@ -53,6 +60,7 @@ class AuthService {
       _role = (data['role'] as String?) == 'staff'
           ? UserRole.staff
           : UserRole.student;
+      _userId = (data['id'] as String?) ?? '';
       return true;
     } catch (_) {
       return false;

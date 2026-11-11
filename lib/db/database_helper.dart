@@ -29,7 +29,8 @@ class DatabaseHelper {
 
   // 1 → 2: favorites 를 staff.id 대신 user_id 로 저장, meta 테이블 추가
   // 2 → 3: 최근 본 교직원(recents) 테이블 추가
-  static const _dbVersion = 3;
+  // 3 → 4: favorites 에 owner(로그인 아이디) 추가. 계정마다 즐겨찾기를 따로 둔다
+  static const _dbVersion = 4;
   static const _seedAsset = 'assets/staff_db.json';
 
   final DatabaseFactory? _factory;
@@ -85,9 +86,13 @@ class DatabaseHelper {
     await _createRecents(db);
   }
 
-  // 즐겨찾기는 user_id 로 저장한다. staff 를 다시 채우면 id 가 바뀌기 때문이다.
-  Future<void> _createFavorites(DatabaseExecutor db) =>
-      db.execute('CREATE TABLE favorites (user_id TEXT PRIMARY KEY)');
+  // 즐겨찾기는 "누가(owner, 로그인 아이디) 누구를(user_id) 즐겨찾기했다"를 한 줄로 저장한다.
+  // 교직원은 user_id 로 가리킨다. staff 를 다시 채우면 id 가 바뀌기 때문이다.
+  // owner 가 '' 이면 로그인하지 않은 기본 계정이다.
+  Future<void> _createFavorites(DatabaseExecutor db) => db.execute(
+    "CREATE TABLE favorites (owner TEXT NOT NULL DEFAULT '', "
+    'user_id TEXT NOT NULL, PRIMARY KEY (owner, user_id))',
+  );
 
   // 최근 본 교직원. 상세를 열거나 전화를 걸 때 시각(ms)을 갱신한다
   Future<void> _createRecents(DatabaseExecutor db) => db.execute(
@@ -114,6 +119,11 @@ class DatabaseHelper {
     }
     if (oldVersion < 3) {
       await _createRecents(db);
+    }
+    if (oldVersion < 4) {
+      // 계정 구분이 없던 기존 즐겨찾기는 누구 것인지 알 수 없어 버리고, owner 가 있는 구조로 새로 만든다
+      await db.execute('DROP TABLE IF EXISTS favorites');
+      await _createFavorites(db);
     }
   }
 
@@ -180,25 +190,33 @@ class DatabaseHelper {
     return rows.map(Staff.fromMap).toList();
   }
 
-  Future<Set<String>> getFavoriteUserIds() async {
+  /// [owner](로그인 아이디)가 즐겨찾기한 교직원의 user_id
+  Future<Set<String>> getFavoriteUserIds({required String owner}) async {
     final db = await database;
-    final rows = await db.query('favorites', columns: ['user_id']);
+    final rows = await db.query(
+      'favorites',
+      columns: ['user_id'],
+      where: 'owner = ?',
+      whereArgs: [owner],
+    );
     return rows.map((r) => r['user_id'] as String).toSet();
   }
 
-  /// 즐겨찾기한 교직원만 이름순으로. 지금 데이터에 없는 사람은 빠진다.
-  Future<List<Staff>> getFavoriteStaff() async {
+  /// [owner]가 즐겨찾기한 교직원만 이름순으로. 지금 데이터에 없는 사람은 빠진다.
+  Future<List<Staff>> getFavoriteStaff({required String owner}) async {
     final db = await database;
     final rows = await db.rawQuery(
-      'SELECT * FROM staff WHERE user_id IN (SELECT user_id FROM favorites) '
-      'ORDER BY name ASC',
+      'SELECT * FROM staff WHERE user_id IN '
+      '(SELECT user_id FROM favorites WHERE owner = ?) ORDER BY name ASC',
+      [owner],
     );
     return rows.map(Staff.fromMap).toList();
   }
 
-  Future<void> addFavorite(String userId) async {
+  Future<void> addFavorite(String userId, {required String owner}) async {
     final db = await database;
     await db.insert('favorites', {
+      'owner': owner,
       'user_id': userId,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
@@ -233,9 +251,14 @@ class DatabaseHelper {
     await db.delete('recents');
   }
 
-  Future<void> removeFavorite(String userId) async {
+  /// [owner]의 즐겨찾기에서만 뺀다. 다른 계정이 같은 교직원을 즐겨찾기한 줄은 남는다
+  Future<void> removeFavorite(String userId, {required String owner}) async {
     final db = await database;
-    await db.delete('favorites', where: 'user_id = ?', whereArgs: [userId]);
+    await db.delete(
+      'favorites',
+      where: 'owner = ? AND user_id = ?',
+      whereArgs: [owner, userId],
+    );
   }
 }
 

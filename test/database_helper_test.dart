@@ -45,11 +45,36 @@ void main() {
       ]),
     );
     expect((await h.getAllStaff()).map((s) => s.name), ['가나', '다라']);
-    await h.addFavorite('b2');
-    expect(await h.getFavoriteUserIds(), {'b2'});
-    expect((await h.getFavoriteStaff()).single.name, '다라');
-    await h.removeFavorite('b2');
-    expect(await h.getFavoriteStaff(), isEmpty);
+    await h.addFavorite('b2', owner: 'u1');
+    expect(await h.getFavoriteUserIds(owner: 'u1'), {'b2'});
+    expect((await h.getFavoriteStaff(owner: 'u1')).single.name, '다라');
+    await h.removeFavorite('b2', owner: 'u1');
+    expect(await h.getFavoriteStaff(owner: 'u1'), isEmpty);
+    await close(h);
+  });
+
+  test('즐겨찾기는 계정(owner)마다 따로 저장된다', () async {
+    final h = helper(
+      seed([
+        ['a1', '가나', '총무팀'],
+        ['b2', '다라', '학생지원팀'],
+      ]),
+    );
+    await h.addFavorite('a1', owner: '22124248');
+    await h.addFavorite('b2', owner: '22124248');
+    await h.addFavorite('b2', owner: '32152');
+    await h.addFavorite('b2', owner: '32152'); // 같은 줄은 하나만 남는다
+
+    expect(await h.getFavoriteUserIds(owner: '22124248'), {'a1', 'b2'});
+    expect(await h.getFavoriteUserIds(owner: '32152'), {'b2'});
+    expect(await h.getFavoriteUserIds(owner: ''), isEmpty);
+
+    // 한 계정에서 빼도 다른 계정의 같은 교직원 즐겨찾기는 남는다
+    await h.removeFavorite('b2', owner: '22124248');
+    expect(await h.getFavoriteUserIds(owner: '22124248'), {'a1'});
+    expect((await h.getFavoriteStaff(owner: '32152')).map((s) => s.name), [
+      '다라',
+    ]);
     await close(h);
   });
 
@@ -60,7 +85,7 @@ void main() {
         ['b2', '다라', '학생지원팀'],
       ]),
     );
-    await v1.addFavorite('b2');
+    await v1.addFavorite('b2', owner: 'u1');
     await close(v1);
 
     // 같은 JSON 이면 다시 채우지 않는다(id 유지)
@@ -90,13 +115,13 @@ void main() {
       ]),
     );
     expect((await v2.getAllStaff()).length, 3);
-    final fav = (await v2.getFavoriteStaff()).single;
+    final fav = (await v2.getFavoriteStaff(owner: 'u1')).single;
     expect(fav.userId, 'b2');
     expect(fav.department, '교무팀');
     await close(v2);
   });
 
-  test('v1 DB 업그레이드: staff.id 즐겨찾기를 user_id 로 옮긴다', () async {
+  test('v1 DB 업그레이드: v4 까지 올라가고, 계정 구분 없던 즐겨찾기는 버린다', () async {
     // 이전 버전(v1) 스키마와 데이터를 직접 만든다
     final old = await factory.openDatabase(
       path,
@@ -130,18 +155,62 @@ void main() {
       ]),
     );
     final db = await h.database;
-    expect(await db.getVersion(), 3);
+    expect(await db.getVersion(), 4);
     // v3 의 최근 본 교직원 테이블도 생긴다
     await h.addRecent('a1');
     expect((await h.getRecentStaff()).single.name, '가나');
-    expect(await h.getFavoriteUserIds(), {'b2'});
-    expect((await h.getFavoriteStaff()).single.name, '다라');
+    // 계정 구분이 없던 기존 즐겨찾기는 남지 않는다
+    expect(await h.getFavoriteUserIds(owner: ''), isEmpty);
+    expect(await h.getFavoriteStaff(owner: ''), isEmpty);
     expect(
       await db.rawQuery(
         "SELECT name FROM sqlite_master WHERE name = 'favorites_v1'",
       ),
       isEmpty,
     );
+    await db.close();
+  });
+
+  test('v3 DB 업그레이드: 즐겨찾기를 owner 가 있는 구조로 새로 만들고 기존 기록은 버린다', () async {
+    // v3 스키마(favorites 에 owner 없음)와 데이터를 직접 만든다
+    final old = await factory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 3,
+        onCreate: (db, _) async {
+          await db.execute('''
+            CREATE TABLE staff (
+              id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, name TEXT NOT NULL,
+              department TEXT, title TEXT, tel TEXT, cell_tel TEXT, location TEXT,
+              email TEXT, charge_business TEXT)''');
+          await db.execute('CREATE TABLE favorites (user_id TEXT PRIMARY KEY)');
+          await db.execute(
+            'CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)',
+          );
+          await db.execute(
+            'CREATE TABLE recents (user_id TEXT PRIMARY KEY, at INTEGER NOT NULL)',
+          );
+        },
+      ),
+    );
+    await old.insert('favorites', {'user_id': 'b2'});
+    await old.close();
+
+    final h = helper(
+      seed([
+        ['a1', '가나', '총무팀'],
+        ['b2', '다라', '학생지원팀'],
+      ]),
+    );
+    final db = await h.database;
+    expect(await db.getVersion(), 4);
+    final cols = await db.rawQuery('PRAGMA table_info(favorites)');
+    expect(cols.map((c) => c['name']), containsAll(['owner', 'user_id']));
+    expect(await h.getFavoriteUserIds(owner: ''), isEmpty);
+    expect(await h.getFavoriteUserIds(owner: '22124248'), isEmpty);
+    // 업그레이드 뒤 새로 넣는 즐겨찾기는 정상 저장된다
+    await h.addFavorite('b2', owner: '22124248');
+    expect(await h.getFavoriteUserIds(owner: '22124248'), {'b2'});
     await db.close();
   });
 
