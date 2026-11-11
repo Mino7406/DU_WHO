@@ -74,6 +74,7 @@ void main() {
     tearDown(AuthService.instance.logout);
 
     test('교직원: 직위·전체 위치 포함, 휴대폰은 보내지 않는다', () {
+      expect(AuthService.instance.login('32152', '12345'), isTrue);
       final m = staffToContext(staff());
       expect(m['title'], '팀장');
       expect(m['location'], '본관 101호');

@@ -109,7 +109,7 @@ DU_WHO/
 │  ├─ src/chat.js                # 요청 검증, 프롬프트 구성, 답변 정리(순수 로직)
 │  └─ test/worker.test.js
 ├─ test/                         # 검색, DB, AI 서비스, 업데이트 비교 테스트
-└─ assets/                       # 앱 아이콘(logo.png), 교직원 데이터(staff_db.json, 저장소에는 없음)
+└─ assets/                       # 앱 아이콘(logo.png), 교직원 데이터(staff_db.json, 가상 인물)
 ```
 
 ---
@@ -133,7 +133,7 @@ flutter run --release
 ```
 
 > [!IMPORTANT]
-> **교직원 데이터(`assets/staff_db.json`)는 개인정보라 저장소에 올리지 않습니다.** 직접 빌드할 때는 학교 포털 `memberSearchList` 형식의 JSON을 이 경로에 넣어야 합니다. 파일 내용이 바뀌면 다음 실행 때 해시를 비교해서 DB를 다시 채웁니다.
+> **저장소의 교직원 데이터(`assets/staff_db.json`)는 시연용 가상 인물 2,246명입니다.** 실제 교직원 정보는 개인정보라 저장소에 올리지 않습니다. 가상 데이터는 학교 포털 `memberSearchList` 형식을 따르고, 부서명만 실제 학교 부서를 씁니다. `test/demo_data_test.dart`가 아이디(`demo`로 시작)와 번호(`053-000-`, `010-0000-`)를 검사해서 실제 데이터가 섞이면 테스트가 실패합니다. 파일 내용이 바뀌면 다음 실행 때 해시를 비교해서 DB를 다시 채웁니다.
 
 ### AI 서버 (`worker/`)
 

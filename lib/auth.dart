@@ -7,7 +7,7 @@ enum UserRole { student, staff }
 
 // 로그인 화면 사용 여부. 실제 인증을 붙이기 전까지 꺼 둔다(login_screen.dart 는 보존).
 // false 인 동안은 모든 사용자가 교직원 권한으로 동작한다.
-const bool kLoginEnabled = false;
+const bool kLoginEnabled = true;
 
 class AuthService {
   static final AuthService instance = AuthService._();

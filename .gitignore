@@ -123,8 +123,8 @@ key.properties
 *.keystore
 *.p12
 *.pem
-# 교직원 데이터(휴대폰 번호 등 개인정보). 빌드하려면 assets/staff_db.json 을 직접 넣는다
-assets/staff_db.json
+# 교직원 데이터. assets/staff_db.json 은 가상 인물만 올린다(test/demo_data_test.dart 가 검사).
+# 실제 교직원 데이터(휴대폰 번호 등 개인정보)는 저장소 밖에 둔다
 sampledb_*.json
 alias sample data.json
 
