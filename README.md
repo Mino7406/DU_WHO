@@ -233,7 +233,7 @@ npx wrangler deploy
 
 1. 앱을 켤 때 Flutter가 DB 파일 경로와 신분(학생/교직원)을 네이티브에 저장해 둡니다(`saveDbPath`, `saveUserRole`). 앱이 꺼져 있어도 네이티브가 같은 DB를 직접 읽습니다.
 2. 전화가 오면 `CallReceiver`가 BETA 스위치를 확인하고, 켜져 있으면 `CallOverlay.show`를 바로 부릅니다. 앱이 꺼져 있을 때는 안드로이드가 포그라운드 서비스 시작을 막아서(Android 12+) 서비스를 쓰지 않습니다.
-3. 번호로 DB를 찾습니다. 휴대폰 일치 > 교내전화 일치 > 내선 순으로 가장 정확한 결과만 쓰고, 비어 있거나 `0000`인 번호, 4자리 미만 번호는 건너뜁니다(모든 전화와 매칭되던 오탐 수정).
+3. 번호로 DB를 찾습니다. 학생 계정도 휴대폰으로 걸려온 전화까지 식별합니다(걸려온 번호는 이미 전화 앱에 보이므로 새로 드러나는 번호가 없음. 앱 안 검색·상세에서는 계속 숨김). 휴대폰 일치 > 교내전화 일치 > 내선 순으로 가장 정확한 결과만 쓰고, 비어 있거나 `0000`인 번호, 4자리 미만 번호는 건너뜁니다(모든 전화와 매칭되던 오탐 수정).
 4. 교직원 번호일 때만 표시합니다. "다른 앱 위에 표시"가 허용돼 있으면 기본 수신 화면을 덮는 전체 화면(이름·부서·위치, `받기`·`거절`, `닫고 기본 전화 화면 보기`)을 띄우고, 아니면 헤드업 알림만 띄웁니다. 같은 번호를 여러 명이 쓰면 사람 대신 부서와 인원으로 보여 줍니다. 학생이면 직위를 빼고 위치는 건물명만(`공학관 301호` → `공학관`) 보여 줍니다.
 5. 전화를 받거나 끊기면 화면과 알림을 내립니다.
 6. BETA 카드는 전화, 통화 기록, 알림 권한과 배터리 최적화 예외, 화면 위 표시 상태를 보여 주고, 빠진 권한은 `권한 허용`으로 요청합니다. 설정 앱에서 바꾸고 돌아오면 상태를 다시 읽습니다. `수신 화면 미리보기`는 실제 수신과 같은 경로로 예시 정보와 가상번호를 띄웁니다.
@@ -315,7 +315,7 @@ npx wrangler deploy
 | 클래스 / 함수 | 설명 |
 |---|---|
 | `CallReceiver.onReceive` | 전화 상태 변화 수신. 스위치가 켜져 있을 때만 화면을 띄우고 내림 |
-| `CallOverlay.queryStaff(number, isStaff)` | 번호로 DB 조회. 휴대폰 > 교내전화 > 내선 순, 공용 번호 판별 |
+| `CallOverlay.queryStaff(number)` | 번호로 DB 조회. 휴대폰 > 교내전화 > 내선 순, 공용 번호 판별 |
 | `CallOverlay.showOverlay` / `showCallerNotification` | 수신 화면 위 전체 화면과 헤드업 알림. 신분에 따라 직위·위치를 거름 |
 | `MainActivity.callerIdStatus()` | BETA 기능에 필요한 권한과 스위치 상태 |
 | `MainActivity` 채널 메서드 | `saveDbPath` `saveUserRole` `getCallerIdStatus` `setCallerIdEnabled` `previewCallerId` `checkCallLogPermission` `requestCallLogPermission` `requestBatteryExemption` |

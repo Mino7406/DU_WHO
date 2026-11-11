@@ -19,7 +19,7 @@ class StaffDatabase {
     /// 전체 번호가 정확히 같을 때만 매칭한다. 끝자리만 비교하면 4자리 내선번호(105건) 때문에
     /// 관계없는 번호의 약 1%가 교직원으로 잘못 감지됐다.
     /// 4자리 내선은 학교 국번(053-850, 053-650)이 붙은 번호로 걸려올 때만 매칭한다.
-    /// 학생: 교내전화만, 교직원: 휴대전화도 매칭. Android CallOverlay.MATCH_SQL 과 같은 SQL.
+    /// 학생: 교내전화만, 교직원: 휴대전화도 매칭. 번호를 직접 넣어 찾는 방식이라 학생에게 휴대전화를 숨긴다(Android 수신 식별은 학생도 휴대전화까지 매칭).
     private static let matchSQL = """
         SELECT name, department, title, location,
                CASE WHEN ?2 = 1 AND c = ?1 THEN 0 WHEN t = ?1 THEN 1 ELSE 2 END AS rank

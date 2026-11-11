@@ -47,7 +47,7 @@ object CallOverlay {
         val isStaff = app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
             .getBoolean(MainActivity.KEY_IS_STAFF, false)
         // DB에 등록된 교직원 번호일 때만 표시
-        val staff = (if (preview) PREVIEW_SAMPLE else app.queryStaff(rawNumber, isStaff)) ?: return
+        val staff = (if (preview) PREVIEW_SAMPLE else app.queryStaff(rawNumber)) ?: return
         val text = callerText(rawNumber, staff, isStaff, preview)
         handler.post {
             app.createChannel()
@@ -342,7 +342,7 @@ object CallOverlay {
         val sharedNames: List<String> = emptyList(),
     )
 
-    private fun Context.queryStaff(rawNumber: String, isStaff: Boolean): StaffInfo? {
+    private fun Context.queryStaff(rawNumber: String): StaffInfo? {
         val dbPath = getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
             .getString(MainActivity.KEY_DB_PATH, null) ?: return null
 
@@ -353,8 +353,7 @@ object CallOverlay {
 
         return try {
             SQLiteDatabase.openDatabase(dbPath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                val args = arrayOf(cleaned, if (isStaff) "1" else "0")
-                db.rawQuery(MATCH_SQL, args).use { c ->
+                db.rawQuery(MATCH_SQL, arrayOf(cleaned)).use { c ->
                     val matches = mutableListOf<StaffInfo>()
                     var bestRank = -1
                     while (c.moveToNext()) {
@@ -409,22 +408,24 @@ object CallOverlay {
     )
 
     /**
-     * 발신 번호 → 교직원 매칭. ?1 = 숫자만 남긴 수신 번호, ?2 = 교직원 계정이면 1.
+     * 발신 번호 → 교직원 매칭. ?1 = 숫자만 남긴 수신 번호.
      * 전체 번호가 정확히 같을 때만 매칭한다. 끝자리만 비교하면 4자리 내선번호(105건) 때문에
      * 관계없는 번호의 약 1%가 교직원으로 잘못 감지됐다.
      * 4자리 내선은 학교 국번(053-850, 053-650)이 붙은 번호로 걸려올 때만 매칭한다.
-     * 학생: 교내전화만, 교직원: 휴대전화도 매칭. ios/Runner/StaffDatabase.swift 와 같은 SQL.
+     * 학생 계정도 휴대전화로 걸려온 전화를 식별한다. 걸려온 번호는 이미 전화 앱에 보이므로
+     * 새로 알려주는 번호가 없다(앱 안 검색·상세에서는 학생에게 휴대전화를 계속 숨긴다).
+     * iOS(StaffDatabase.swift)는 번호를 직접 넣어 찾는 방식이라 학생은 교내전화만 매칭한다.
      */
     private val MATCH_SQL = """
         SELECT name, department, title, location,
-               CASE WHEN ?2 = 1 AND c = ?1 THEN 0 WHEN t = ?1 THEN 1 ELSE 2 END AS rank
+               CASE WHEN c = ?1 THEN 0 WHEN t = ?1 THEN 1 ELSE 2 END AS rank
         FROM (
             SELECT name, department, title, location,
                    REPLACE(REPLACE(tel,     '-', ''), ' ', '') AS t,
                    REPLACE(REPLACE(cell_tel,'-', ''), ' ', '') AS c
             FROM staff
         )
-        WHERE (?2 = 1 AND c = ?1)
+        WHERE c = ?1
            OR t = ?1
            OR (LENGTH(t) = 4 AND t <> '0000' AND ?1 IN ('053850' || t, '053650' || t))
         ORDER BY rank
